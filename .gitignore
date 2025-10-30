@@ -1,0 +1,21 @@
+"" 
+# ============================================
+# .gitignore para Proyecto Flutter + Node.js
+# ============================================
+
+# --- Archivos Sensibles y Locales (CRUCIALES) ---
+# Ignorar el archivo de variables de entorno (credenciales de BD)
+.env
+# Archivos de registro
+*.log
+
+# --- Archivos de Flutter (Ignorar compilaciones y caché) ---
+/tesis_movil/build/              # El resultado compilado (binarios)
+/tesis_movil/.dart_tool/         # Herramientas de Dart
+/tesis_movil/.flutter-plugin-list
+/tesis_movil/.packages
+/tesis_movil/.pub-cache
+
+# --- Archivos de Node.js (Ignorar dependencias y módulos) ---
+/tesis-api/node_modules/         # Las librerías instaladas por npm
+/tesis-api/package-lock.json     # Bloqueo de versiones (opcional)
