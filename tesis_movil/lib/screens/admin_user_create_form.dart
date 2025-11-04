@@ -1,18 +1,22 @@
-// lib/screens/admin_user_screen.dart
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import '../models/rol.dart';
 import '../services/auth_service.dart';
 
-class AdminUserScreen extends StatefulWidget {
-  const AdminUserScreen({super.key});
+class AdminUserCreateForm extends StatefulWidget {
+  final VoidCallback onUserCreated;
+
+  const AdminUserCreateForm({
+    super.key, 
+    required this.onUserCreated
+  });
 
   @override
-  State<AdminUserScreen> createState() => _AdminUserScreenState();
+  State<AdminUserCreateForm> createState() => _AdminUserCreateFormState();
 }
 
-class _AdminUserScreenState extends State<AdminUserScreen> {
+class _AdminUserCreateFormState extends State<AdminUserCreateForm> {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
   final TextEditingController _cedulaController = TextEditingController();

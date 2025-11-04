@@ -1,7 +1,7 @@
 // lib/screens/home_screen.dart (Modificado)
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'admin_user_screen.dart'; // Importar la nueva pantalla
+import 'admin_board_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -71,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: const Text('Gestión de Personal', style: TextStyle(color: Colors.white)),
                       onTap: () {
                         Navigator.pop(context); // Cierra el drawer
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminUserScreen()));
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminBoardScreen()));
                       },
                     ),
                   
