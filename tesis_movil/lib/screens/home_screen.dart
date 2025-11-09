@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'admin_board_screen.dart';
+import 'resident/resident_home_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -82,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: const Text('Registro de Pacientes', style: TextStyle(color: Colors.white)),
                       onTap: () {
                        Navigator.pop(context);
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => const PacienteScreen()));
+                       Navigator.push(context, MaterialPageRoute(builder: (context) => const ResidentHomeScreen()));
                      },
                    ),
                   

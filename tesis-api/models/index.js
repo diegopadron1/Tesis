@@ -9,18 +9,30 @@ db.connectDB = connectDB;
 // 1. Importar Modelos
 db.Rol = require('./rol')(sequelize, DataTypes);
 db.Usuario = require('./Usuario')(sequelize, DataTypes);
-// ... aquí importaremos más modelos como Paciente, Triaje, etc. ...
+db.Paciente = require('./Paciente')(sequelize, DataTypes); // NUEVO
+db.ContactoEmergencia = require('./ContactoEmergencia')(sequelize, DataTypes); // NUEVO
 
 // 2. Definir Relaciones (Associations)
-// Un Rol tiene muchos Usuarios
-db.Rol.hasMany(db.Usuario, {
-  foreignKey: 'id_rol',
-  as: 'usuarios'
+// --- Relaciones de Autenticación ---
+db.Rol.hasMany(db.Usuario, { foreignKey: 'id_rol', as: 'usuarios' });
+db.Usuario.belongsTo(db.Rol, { foreignKey: 'id_rol', as: 'rol' });
+
+// --- Relaciones de Paciente y Contacto (AJUSTADAS A LA TESIS) ---
+// Un Paciente tiene un Contacto de Emergencia (1:1)
+db.Paciente.hasOne(db.ContactoEmergencia, {
+    foreignKey: 'cedula_paciente', // Usamos la nueva FK
+    sourceKey: 'cedula', // Enlaza a la cédula del paciente
+    as: 'contactoEmergencia',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
 });
-// Un Usuario pertenece a un Rol
-db.Usuario.belongsTo(db.Rol, {
-  foreignKey: 'id_rol',
-  as: 'rol'
+
+// Un Contacto de Emergencia pertenece a un Paciente
+db.ContactoEmergencia.belongsTo(db.Paciente, {
+    foreignKey: 'cedula_paciente', // Usamos la nueva FK
+    targetKey: 'cedula', // Enlaza a la cédula del paciente
+    as: 'paciente'
 });
+
 
 module.exports = db;

@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 // Importa el objeto db completo (conexión, modelos y relaciones)
 const db = require('./models');
+const patientRoutes = require('./routes/patientRoutes');
 
 require('dotenv').config();
 
@@ -22,7 +23,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(express.json());
-
+app.use('/api', patientRoutes);
 // -----------------------------------------------------------------
 // 1. Conectar y Sincronizar la base de datos
 // -----------------------------------------------------------------

@@ -36,7 +36,7 @@ dependencies:
   http: ^1.1.0
   flutter_secure_storage: ^9.0.0
   cupertino_icons: ^1.0.8
-
+  intl: ^0.18.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -50,7 +50,7 @@ dev_dependencies:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
-
+  
 # The following section is specific to Flutter packages.
 flutter:
 

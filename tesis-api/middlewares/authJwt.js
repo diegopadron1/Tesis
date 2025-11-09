@@ -54,7 +54,7 @@ const isFarmacia = (req, res, next) => {
 };
 
 // 4. Middleware para verificar si es Médico (Residente o Especialista)
-const isMedico = (req, res, next) => {
+const isResident = (req, res, next) => {
     if (req.rol === "Residente" || req.rol === "Especialista") {
         next();
         return;
@@ -65,12 +65,23 @@ const isMedico = (req, res, next) => {
     });
 };
 
+const isAdminOrResident = (req, res, next) => {
+    if (req.rol === "Administrador" || req.rol === "Residente") {
+        next();
+        return;
+    }
+
+    res.status(403).send({
+        message: "Se requiere Rol de Administrador o Residente para esta acción."
+    });
+};
 
 const authJwt = {
     verifyToken,
     isAdmin,
     isFarmacia,
-    isMedico
+    isResident, 
+    isAdminOrResident
 };
 
 module.exports = authJwt;
