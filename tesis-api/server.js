@@ -5,6 +5,7 @@ const cors = require('cors');
 const db = require('./models');
 const patientRoutes = require('./routes/patientRoutes');
 const motivoConsultaRoutes = require('./routes/motivoConsulta.routes');
+const diagnosticoRoutes = require('./routes/diagnostico.routes');
 
 require('dotenv').config();
 
@@ -26,6 +27,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/api', patientRoutes);
 app.use('/api', motivoConsultaRoutes);
+app.use('/api', diagnosticoRoutes);
 // -----------------------------------------------------------------
 // 1. Conectar y Sincronizar la base de datos
 // -----------------------------------------------------------------

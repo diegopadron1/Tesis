@@ -12,6 +12,7 @@ db.Usuario = require('./Usuario')(sequelize, DataTypes);
 db.Paciente = require('./Paciente')(sequelize, DataTypes); // NUEVO
 db.ContactoEmergencia = require('./ContactoEmergencia')(sequelize, DataTypes); // NUEVO
 db.MotivoConsulta = require('./MotivoConsulta')(sequelize, DataTypes);;
+db.Diagnostico = require("./Diagnostico.js")(sequelize, Sequelize);
 
 // 2. Definir Relaciones (Associations)
 // --- Relaciones de Autenticación ---

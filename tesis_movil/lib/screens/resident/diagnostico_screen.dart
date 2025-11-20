@@ -1,41 +1,38 @@
 import 'package:flutter/material.dart';
-import '../../services/motivo_consulta_service.dart';
+import '../../services/diagnostico_service.dart';
 
-class MotivoConsultaScreen extends StatefulWidget {
-  // Constructor simple: No requiere recibir datos de otra pantalla
-  const MotivoConsultaScreen({super.key});
+class DiagnosticoScreen extends StatefulWidget {
+  const DiagnosticoScreen({super.key});
 
   @override
-  State<MotivoConsultaScreen> createState() => _MotivoConsultaScreenState();
+  State<DiagnosticoScreen> createState() => _DiagnosticoScreenState();
 }
 
-class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
+class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
   final _formKey = GlobalKey<FormState>();
   
-  // Controladores: Uno para la cédula (ahora manual) y otro para el motivo
   final TextEditingController _cedulaController = TextEditingController();
-  final TextEditingController _motivoController = TextEditingController();
+  final TextEditingController _diagnosticoController = TextEditingController();
   
-  final MotivoConsultaService _motivoService = MotivoConsultaService();
+  final DiagnosticoService _diagnosticoService = DiagnosticoService();
   
   bool _isLoading = false;
 
   @override
   void dispose() {
     _cedulaController.dispose();
-    _motivoController.dispose();
+    _diagnosticoController.dispose();
     super.dispose();
   }
 
-  void _guardarMotivo() async {
+  void _guardarDiagnostico() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Enviamos los datos capturados en los inputs al servicio
-    final result = await _motivoService.createMotivoConsulta(
+    final result = await _diagnosticoService.createDiagnostico(
       _cedulaController.text.trim(),
-      _motivoController.text.trim(),
+      _diagnosticoController.text.trim(),
     );
 
     setState(() => _isLoading = false);
@@ -43,20 +40,16 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
     if (!mounted) return;
 
     if (result['success']) {
-      // ÉXITO: Mostramos mensaje verde
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('¡Éxito! ${result['message']}'), 
           backgroundColor: Colors.green
         ),
       );
-      
-      // Limpiamos campos para permitir otro registro inmediato
+      // Limpiar campos
       _cedulaController.clear();
-      _motivoController.clear();
-      
+      _diagnosticoController.clear();
     } else {
-      // ERROR: Mostramos mensaje rojo
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message']), 
@@ -70,7 +63,7 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nuevo Motivo de Consulta'),
+        title: const Text('Nuevo Motivo Diagnóstico'),
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
       ),
@@ -82,86 +75,61 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "1. Identificación del Paciente",
+                "1. Paciente a Diagnosticar",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 15),
-
-              // --- CAMPO DE CÉDULA (EDITABLE) ---
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _cedulaController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Cédula del Paciente *',
-                  hintText: 'Ingrese la cédula del paciente',
                   prefixIcon: const Icon(Icons.person_search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   filled: true,
                   fillColor: const Color.fromARGB(255, 29, 3, 146),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La cédula es obligatoria.';
-                  }
-                  if (value.length < 5) {
-                    return 'Ingrese una cédula válida.';
-                  }
-                  return null;
-                },
+                validator: (v) => (v == null || v.length < 5) ? 'Cédula inválida' : null,
               ),
               
               const SizedBox(height: 30),
 
               const Text(
-                "2. Detalle de la Emergencia",
+                "2. Diagnóstico Definitivo",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 15),
-
-              // --- CAMPO DE MOTIVO ---
+              const SizedBox(height: 10),
               TextFormField(
-                controller: _motivoController,
-                maxLines: 5,
+                controller: _diagnosticoController,
+                maxLines: 8,
                 decoration: InputDecoration(
-                  labelText: 'Motivo de Consulta *',
+                  labelText: 'Escriba el diagnóstico médico *',
                   alignLabelWithHint: true,
-                  hintText: 'Describa síntomas, dolor, tiempo, etc.',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  hintText: 'Detalle la patología confirmada...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   filled: true,
                   fillColor: const Color.fromARGB(255, 29, 3, 146),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'El motivo es obligatorio.';
-                  }
-                  return null;
-                },
+                validator: (v) => (v == null || v.isEmpty) ? 'El diagnóstico es obligatorio' : null,
               ),
               const SizedBox(height: 30),
 
-              // --- BOTÓN GUARDAR ---
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _guardarMotivo,
+                  onPressed: _isLoading ? null : _guardarDiagnostico,
                   icon: _isLoading 
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
-                      : const Icon(Icons.save, size: 28),
+                      : const Icon(Icons.medical_information, size: 28),
                   label: Text(
-                    _isLoading ? 'Guardando...' : 'Registrar Motivo', 
+                    _isLoading ? 'Guardando...' : 'Registrar Diagnóstico', 
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[800],
+                    backgroundColor: Colors.indigo[800], // Diferenciamos color
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
