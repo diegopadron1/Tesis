@@ -11,4 +11,5 @@ class ApiConfig {
   static const String createUserUrl = '$baseUrl/admin/users';
   static const String getRolesUrl = '$baseUrl/roles';
   static const String registerPatientUrl = '$baseUrl/pacientes';
+  static const String motivoConsultaUrl = "$baseUrl/motivo-consulta";
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // Importa la pantalla de registro que ya creamos
 import 'register_patient_screen.dart'; 
+import 'motivo_consulta_screen.dart'; 
 // Importa el servicio de autenticación si necesitas el botón de cerrar sesión
 import '../../services/auth_service.dart'; 
 import '../login_screen.dart'; 
@@ -14,7 +15,7 @@ class ResidentHomeScreen extends StatelessWidget {
     final AuthService authService = AuthService();
 
     return DefaultTabController(
-      length: 2, // Dos pestañas: Registro y Triaje (futuro)
+      length: 3, // Dos pestañas: Registro y Triaje (futuro)
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Módulo Residente'),
@@ -41,6 +42,7 @@ class ResidentHomeScreen extends StatelessWidget {
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.person_add), text: "Registrar Paciente"),
+              Tab(icon: Icon(Icons.note_add), text: "Motivo"),
               Tab(icon: Icon(Icons.monitor_heart), text: "Triaje (Pendiente)"),
             ],
             labelColor: Colors.white,
@@ -52,6 +54,7 @@ class ResidentHomeScreen extends StatelessWidget {
           children: [
             // **AQUÍ SE MUESTRA LA INTERFAZ DE REGISTRO**
             RegisterPatientScreen(),
+            MotivoConsultaScreen(), 
             
             // Placeholder para la futura pantalla de Triaje
             Center(

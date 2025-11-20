@@ -11,6 +11,7 @@ db.Rol = require('./rol')(sequelize, DataTypes);
 db.Usuario = require('./Usuario')(sequelize, DataTypes);
 db.Paciente = require('./Paciente')(sequelize, DataTypes); // NUEVO
 db.ContactoEmergencia = require('./ContactoEmergencia')(sequelize, DataTypes); // NUEVO
+db.MotivoConsulta = require('./MotivoConsulta')(sequelize, DataTypes);;
 
 // 2. Definir Relaciones (Associations)
 // --- Relaciones de Autenticación ---
@@ -32,6 +33,15 @@ db.ContactoEmergencia.belongsTo(db.Paciente, {
     foreignKey: 'cedula_paciente', // Usamos la nueva FK
     targetKey: 'cedula', // Enlaza a la cédula del paciente
     as: 'paciente'
+});
+
+db.Paciente.hasMany(db.MotivoConsulta, { 
+    foreignKey: 'cedula_paciente', 
+    as: 'historialConsultas' 
+});
+db.MotivoConsulta.belongsTo(db.Paciente, { 
+    foreignKey: 'cedula_paciente', 
+    as: 'paciente' 
 });
 
 

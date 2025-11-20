@@ -121,6 +121,8 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
           duration: const Duration(seconds: 4),
         ),
       );
+
+      
       
       // Limpiar el formulario si fue exitoso
       if (result['success']) {
@@ -130,7 +132,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
       setState(() {
         _isLoading = false;
       });
-    }
+    } 
   }
 
   void _clearForm() {
