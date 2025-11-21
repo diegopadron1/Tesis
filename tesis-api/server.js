@@ -6,6 +6,7 @@ const db = require('./models');
 const patientRoutes = require('./routes/patientRoutes');
 const motivoConsultaRoutes = require('./routes/motivoConsulta.routes');
 const diagnosticoRoutes = require('./routes/diagnostico.routes');
+const examenRoutes = require('./routes/examen.routes');
 
 require('dotenv').config();
 
@@ -28,6 +29,7 @@ app.use(express.json());
 app.use('/api', patientRoutes);
 app.use('/api', motivoConsultaRoutes);
 app.use('/api', diagnosticoRoutes);
+app.use('/api', examenRoutes);
 // -----------------------------------------------------------------
 // 1. Conectar y Sincronizar la base de datos
 // -----------------------------------------------------------------
