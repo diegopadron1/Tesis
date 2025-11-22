@@ -99,7 +99,7 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   filled: true,
-                  fillColor: const Color.fromARGB(255, 29, 3, 146),
+                  
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -132,7 +132,7 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   filled: true,
-                  fillColor: const Color.fromARGB(255, 29, 3, 146),
+                  
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {

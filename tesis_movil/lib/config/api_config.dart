@@ -15,4 +15,7 @@ class ApiConfig {
   static const String diagnosticoUrl = "$baseUrl/diagnostico"; 
   static const String examenFisicoUrl = "$baseUrl/examen/fisico";
   static const String examenFuncionalUrl = "$baseUrl/examen/funcional";
+  static const String antecedentesPersonalUrl = "$baseUrl/antecedentes/personal";
+  static const String antecedentesFamiliarUrl = "$baseUrl/antecedentes/familiar";
+  static const String antecedentesHabitosUrl = "$baseUrl/antecedentes/habitos";
 } 

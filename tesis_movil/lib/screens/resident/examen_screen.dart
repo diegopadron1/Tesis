@@ -201,7 +201,7 @@ Widget _buildInput(TextEditingController ctrl, String label, {IconData? icon, bo
       prefixIcon: icon != null ? Icon(icon) : null,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       filled: true,
-      fillColor: Colors.white,
+      
     ),
     validator: (v) => (v == null || v.isEmpty) ? 'Campo obligatorio' : null,
   );

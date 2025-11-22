@@ -15,6 +15,10 @@ db.MotivoConsulta = require('./MotivoConsulta')(sequelize, DataTypes);;
 db.Diagnostico = require("./Diagnostico.js")(sequelize, Sequelize);
 db.ExamenFisico = require("./ExamenFisico.js")(sequelize, Sequelize);
 db.ExamenFuncional = require("./ExamenFuncional.js")(sequelize, Sequelize);
+db.AntecedentesPersonales = require("./AntecedentesPersonales.js")(sequelize, Sequelize);
+db.AntecedentesFamiliares = require("./AntecedentesFamiliares.js")(sequelize, Sequelize);
+db.HabitosPsicobiologicos = require("./HabitosPsicobiologicos.js")(sequelize, Sequelize);
+
 
 // 2. Definir Relaciones (Associations)
 // --- Relaciones de Autenticación ---

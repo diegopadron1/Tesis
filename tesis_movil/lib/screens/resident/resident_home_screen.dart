@@ -4,6 +4,7 @@ import 'register_patient_screen.dart';
 import 'motivo_consulta_screen.dart'; 
 import 'diagnostico_screen.dart';
 import 'examen_screen.dart';
+import 'antecedentes_screen.dart';
 // Importa el servicio de autenticación si necesitas el botón de cerrar sesión
 import '../../services/auth_service.dart'; 
 import '../login_screen.dart'; 
@@ -17,7 +18,7 @@ class ResidentHomeScreen extends StatelessWidget {
     final AuthService authService = AuthService();
 
     return DefaultTabController(
-      length: 5, // cinco pestañas
+      length: 6, // seis pestañas
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Módulo Residente'),
@@ -47,6 +48,7 @@ class ResidentHomeScreen extends StatelessWidget {
               Tab(icon: Icon(Icons.note_add), text: "Motivo"),
               Tab(icon: Icon(Icons.assignment_turned_in), text: "Diagnóstico"),
               Tab(icon: Icon(Icons.accessibility_new), text: "Exámenes"),
+              Tab(icon: Icon(Icons.history_edu), text: "Antecedentes"),
               Tab(icon: Icon(Icons.monitor_heart), text: "Triaje (Pendiente)"),
             ],
             labelColor: Colors.white,
@@ -61,6 +63,7 @@ class ResidentHomeScreen extends StatelessWidget {
             MotivoConsultaScreen(), 
             DiagnosticoScreen(),
             ExamenScreen(),
+            AntecedentesScreen(),
             // Placeholder para la futura pantalla de Triaje
             Center(
               child: Column(

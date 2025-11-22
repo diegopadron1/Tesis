@@ -196,7 +196,7 @@ class _UserEditFormModalState extends State<UserEditFormModal> {
           border: OutlineInputBorder(),
           prefixIcon: Icon(Icons.people),
         ),
-        value: _selectedRol,
+        initialValue: _selectedRol,
         hint: const Text('Seleccione un Rol'),
         isExpanded: true,
         items: _roles.map((Rol rol) {

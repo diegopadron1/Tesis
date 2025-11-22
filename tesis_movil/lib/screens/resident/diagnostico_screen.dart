@@ -87,7 +87,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                   prefixIcon: const Icon(Icons.person_search),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   filled: true,
-                  fillColor: const Color.fromARGB(255, 29, 3, 146),
+                 
                 ),
                 validator: (v) => (v == null || v.length < 5) ? 'Cédula inválida' : null,
               ),
@@ -108,7 +108,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                   hintText: 'Detalle la patología confirmada...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   filled: true,
-                  fillColor: const Color.fromARGB(255, 29, 3, 146),
+                  
                 ),
                 validator: (v) => (v == null || v.isEmpty) ? 'El diagnóstico es obligatorio' : null,
               ),
