@@ -8,6 +8,8 @@ const motivoConsultaRoutes = require('./routes/motivoConsulta.routes');
 const diagnosticoRoutes = require('./routes/diagnostico.routes');
 const examenRoutes = require('./routes/examen.routes');
 const antecedentesRoutes = require('./routes/antecedentes.routes');
+const farmaciaRoutes = require('./routes/farmacia.routes');
+
 
 require('dotenv').config();
 
@@ -32,6 +34,7 @@ app.use('/api', motivoConsultaRoutes);
 app.use('/api', diagnosticoRoutes);
 app.use('/api', examenRoutes);
 app.use('/api', antecedentesRoutes);
+app.use('/api/farmacia', farmaciaRoutes); // Nota el prefijo /api/farmacia
 // -----------------------------------------------------------------
 // 1. Conectar y Sincronizar la base de datos
 // -----------------------------------------------------------------

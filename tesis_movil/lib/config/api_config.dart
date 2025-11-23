@@ -18,4 +18,8 @@ class ApiConfig {
   static const String antecedentesPersonalUrl = "$baseUrl/antecedentes/personal";
   static const String antecedentesFamiliarUrl = "$baseUrl/antecedentes/familiar";
   static const String antecedentesHabitosUrl = "$baseUrl/antecedentes/habitos";
+  static const String farmaciaInventarioUrl = "$baseUrl/farmacia/inventario";
+  static const String farmaciaCrearUrl = "$baseUrl/farmacia/medicamento";
+  static const String farmaciaStockUrl = "$baseUrl/farmacia/stock/entrada";
+  static const String farmaciaSalidaUrl = "$baseUrl/farmacia/stock/salida";
 } 
