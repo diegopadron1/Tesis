@@ -46,9 +46,9 @@ class ResidentHomeScreen extends StatelessWidget {
             tabs: [
               Tab(icon: Icon(Icons.person_add), text: "Registrar Paciente"),
               Tab(icon: Icon(Icons.note_add), text: "Motivo"),
-              Tab(icon: Icon(Icons.assignment_turned_in), text: "Diagnóstico"),
               Tab(icon: Icon(Icons.accessibility_new), text: "Exámenes"),
               Tab(icon: Icon(Icons.history_edu), text: "Antecedentes"),
+              Tab(icon: Icon(Icons.assignment_turned_in), text: "Diagnóstico"),
               Tab(icon: Icon(Icons.monitor_heart), text: "Triaje (Pendiente)"),
             ],
             labelColor: Colors.white,
@@ -61,9 +61,9 @@ class ResidentHomeScreen extends StatelessWidget {
             // **AQUÍ SE MUESTRA LA INTERFAZ DE REGISTRO**
             RegisterPatientScreen(),
             MotivoConsultaScreen(), 
-            DiagnosticoScreen(),
             ExamenScreen(),
             AntecedentesScreen(),
+            DiagnosticoScreen(),
             // Placeholder para la futura pantalla de Triaje
             Center(
               child: Column(

@@ -1,38 +1,27 @@
-// controllers/auth.controller.js
 const db = require('../models');
-const Usuario = db.Usuario;
-const Rol = db.Rol;
+const Usuario = db.user; 
+const Rol = db.role;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Asegúrate de añadir una clave secreta fuerte en tu archivo .env
-// Por ahora, la definiremos aquí temporalmente para avanzar. 
-// ¡RECUERDA MOVER ESTO AL .ENV!
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "clave-secreta-temporal";
 
 exports.signin = async (req, res) => {
     try {
         const { cedula, password } = req.body;
 
-        // 1. Buscar el usuario por cédula
+        // 1. Buscar el usuario
         const user = await Usuario.findOne({
-            where: { cedula: cedula },
-            // Incluir el nombre del Rol en la respuesta
-            include: [{
-                model: Rol,
-                as: 'rol',
-                attributes: ['nombre_rol'] 
-            }]
+            where: { cedula: cedula }
         });
 
-        // 2. Verificar si el usuario existe y está activo
-        if (!user || !user.activo) {
+        if (!user) {
             return res.status(404).send({ 
-                message: "Usuario no encontrado o inactivo." 
+                message: "Usuario no encontrado." 
             });
         }
 
-        // 3. Comparar la contraseña ingresada con el hash almacenado
+        // 2. Comparar contraseña
         const passwordIsValid = bcrypt.compareSync(
             password,
             user.password
@@ -45,31 +34,43 @@ exports.signin = async (req, res) => {
             });
         }
 
-        // 4. Generar el Token JWT
+        // 3. Obtener el nombre del Rol
+        let nombreRol = "Usuario";
+        if (user.id_rol) {
+            const rolEncontrado = await Rol.findByPk(user.id_rol);
+            if (rolEncontrado) {
+                nombreRol = rolEncontrado.nombre_rol;
+            }
+        }
+
+        // 4. Generar Token
         const token = jwt.sign(
             { 
                 cedula: user.cedula,
-                rol: user.rol.nombre_rol
+                rol: nombreRol
             },
             JWT_SECRET,
             {
-                expiresIn: 86400 // 24 horas en segundos
+                expiresIn: 86400 
             }
         );
 
-        // 5. Responder con la información del usuario y el token
+        // 5. Responder (CORRECCIÓN AQUÍ)
+        // Enviamos 'rol' en singular porque así lo espera tu AuthService en Flutter
         res.status(200).send({
             cedula: user.cedula,
             nombre: user.nombre,
             apellido: user.apellido,
             email: user.email,
-            rol: user.rol.nombre_rol,
+            rol: nombreRol,       // <--- ESTA LÍNEA ES LA CLAVE (Singular)
+            roles: [nombreRol],   // Dejamos este por si acaso en el futuro lo necesitas
             accessToken: token
         });
 
     } catch (error) {
+        console.error("Error en signin:", error);
         res.status(500).send({ 
-            message: error.message 
+            message: error.message || "Error al iniciar sesión."
         });
     }
 };

@@ -1,57 +1,37 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import 'auth_service.dart';
 
 class DiagnosticoService {
   final AuthService _authService = AuthService();
 
-  Future<Map<String, dynamic>> createDiagnostico(
-      String cedulaPaciente, String diagnosticoDefinitivo) async {
-    
-    // 1. Obtener Token
+  Future<Map<String, dynamic>> createDiagnostico(Map<String, dynamic> data) async {
     final token = await _authService.getToken();
-    if (token == null) {
-      return {'success': false, 'message': 'Sesión expirada. Inicie sesión.'};
-    }
-
-    final url = Uri.parse(ApiConfig.diagnosticoUrl);
+    if (token == null) return {'success': false, 'message': 'Sin sesión.'};
 
     try {
       final response = await http.post(
-        url,
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
+        Uri.parse(ApiConfig.diagnosticoUrl),
+        headers: {
+          'Content-Type': 'application/json',
           'x-access-token': token,
         },
-        body: jsonEncode({
-          'cedula_paciente': cedulaPaciente,
-          'diagnostico_definitivo': diagnosticoDefinitivo,
-        }),
+        body: jsonEncode(data), // Enviamos el mapa completo con los nuevos campos
       );
 
-      final responseBody = jsonDecode(response.body);
-
+      final body = jsonDecode(response.body);
+      
       if (response.statusCode == 201) {
-        return {
-          'success': true, 
-          'message': responseBody['message'],
-          'data': responseBody['data']
-        };
+        return {'success': true, 'message': body['message']};
+      } else if (response.statusCode == 403) {
+        // Capturamos el error de validación clínica (Falta motivo, examen, etc.)
+        return {'success': false, 'message': body['message']};
       } else {
-        final message = responseBody['message'] ?? 'Error desconocido.';
-        return {
-          'success': false,
-          'message': message,
-        };
+        return {'success': false, 'message': body['message'] ?? 'Error desconocido'};
       }
     } catch (e) {
-      debugPrint('Error en DiagnosticoService: $e');
-      return {
-        'success': false, 
-        'message': 'Error de conexión con el servidor.'
-      };
+      return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
 }

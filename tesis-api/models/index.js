@@ -1,56 +1,98 @@
 // models/index.js
-const { sequelize, connectDB } = require('../config/db.config');
-const { Sequelize, DataTypes } = require('sequelize');
+const config = require("../config/db.config.js");
+const Sequelize = require("sequelize");
+
+// 1. VALIDACIONES DE SEGURIDAD
+const poolConfig = config.pool || {
+  max: 5,
+  min: 0,
+  acquire: 30000,
+  idle: 10000
+};
+
+const dbDialect = config.dialect || 'postgres';
+const dbHost = config.HOST || 'localhost';
+
+const sequelize = new Sequelize(
+  config.DB,
+  config.USER,
+  config.PASSWORD,
+  {
+    host: dbHost,
+    dialect: dbDialect,
+    pool: {
+      max: poolConfig.max,
+      min: poolConfig.min,
+      acquire: poolConfig.acquire,
+      idle: poolConfig.idle
+    },
+    logging: false 
+  }
+);
+
 const db = {};
 
+db.Sequelize = Sequelize;
 db.sequelize = sequelize;
-db.connectDB = connectDB;
 
-// 1. Importar Modelos
-db.Rol = require('./rol')(sequelize, DataTypes);
-db.Usuario = require('./Usuario')(sequelize, DataTypes);
-db.Paciente = require('./Paciente')(sequelize, DataTypes); // NUEVO
-db.ContactoEmergencia = require('./ContactoEmergencia')(sequelize, DataTypes); // NUEVO
-db.MotivoConsulta = require('./MotivoConsulta')(sequelize, DataTypes);;
+// Función de conexión
+db.connectDB = async () => {
+    try {
+        await sequelize.authenticate();
+        console.log('✅ Conexión a PostgreSQL establecida correctamente.');
+        await sequelize.sync(); 
+        console.log('✅ Base de datos sincronizada.');
+    } catch (error) {
+        console.error('❌ Error fatal: No se pudo conectar a la base de datos:', error);
+        process.exit(1);
+    }
+};
+
+// ==========================================
+// 2. IMPORTACIÓN DE MODELOS
+// ==========================================
+
+// --- Autenticación ---
+db.user = require("./Usuario.js")(sequelize, Sequelize);
+
+// CORREGIDO: Usamos Rol.js (Mayúscula)
+db.role = require("./Rol.js")(sequelize, Sequelize);
+
+// Módulos Clínicos
+db.Paciente = require("./Paciente.js")(sequelize, Sequelize);
+db.MotivoConsulta = require("./MotivoConsulta.js")(sequelize, Sequelize);
 db.Diagnostico = require("./Diagnostico.js")(sequelize, Sequelize);
 db.ExamenFisico = require("./ExamenFisico.js")(sequelize, Sequelize);
 db.ExamenFuncional = require("./ExamenFuncional.js")(sequelize, Sequelize);
+
+// Antecedentes
 db.AntecedentesPersonales = require("./AntecedentesPersonales.js")(sequelize, Sequelize);
 db.AntecedentesFamiliares = require("./AntecedentesFamiliares.js")(sequelize, Sequelize);
 db.HabitosPsicobiologicos = require("./HabitosPsicobiologicos.js")(sequelize, Sequelize);
+
+// Farmacia
 db.Medicamento = require("./Medicamento.js")(sequelize, Sequelize);
 db.MovimientoInventario = require("./MovimientoInventario.js")(sequelize, Sequelize);
 
-// 2. Definir Relaciones (Associations)
-// --- Relaciones de Autenticación ---
-db.Rol.hasMany(db.Usuario, { foreignKey: 'id_rol', as: 'usuarios' });
-db.Usuario.belongsTo(db.Rol, { foreignKey: 'id_rol', as: 'rol' });
+// Órdenes Médicas
+db.OrdenesMedicas = require("./OrdenesMedicas.js")(sequelize, Sequelize);
 
-// --- Relaciones de Paciente y Contacto (AJUSTADAS A LA TESIS) ---
-// Un Paciente tiene un Contacto de Emergencia (1:1)
-db.Paciente.hasOne(db.ContactoEmergencia, {
-    foreignKey: 'cedula_paciente', // Usamos la nueva FK
-    sourceKey: 'cedula', // Enlaza a la cédula del paciente
-    as: 'contactoEmergencia',
-    onDelete: 'CASCADE',
-    onUpdate: 'CASCADE'
-});
+// ==========================================
+// 3. DEFINICIÓN DE RELACIONES
+// ==========================================
 
-// Un Contacto de Emergencia pertenece a un Paciente
-db.ContactoEmergencia.belongsTo(db.Paciente, {
-    foreignKey: 'cedula_paciente', // Usamos la nueva FK
-    targetKey: 'cedula', // Enlaza a la cédula del paciente
-    as: 'paciente'
-});
+// Roles y Usuarios
+db.role.belongsToMany(db.user, { through: "user_roles" });
+db.user.belongsToMany(db.role, { through: "user_roles" });
 
-db.Paciente.hasMany(db.MotivoConsulta, { 
-    foreignKey: 'cedula_paciente', 
-    as: 'historialConsultas' 
-});
-db.MotivoConsulta.belongsTo(db.Paciente, { 
-    foreignKey: 'cedula_paciente', 
-    as: 'paciente' 
-});
+// Relaciones Farmacia
+db.Medicamento.hasMany(db.MovimientoInventario, { foreignKey: 'id_medicamento' });
+db.MovimientoInventario.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento' });
 
+// Relaciones Clínicas
+if (db.Paciente && db.OrdenesMedicas) {
+  db.Paciente.hasMany(db.OrdenesMedicas, { foreignKey: 'cedula_paciente' });
+  db.OrdenesMedicas.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+}
 
 module.exports = db;
