@@ -1,18 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const farmaciaController = require('../controllers/farmacia.controllers');
-const { verifyToken } = require('../middlewares/authJwt');
+const { verifyToken, isFarmacia } = require('../middlewares/authJwt');
 
-// Ver inventario (GET)
-router.get('/inventario', [verifyToken], farmaciaController.getAllMedicamentos);
+// GET Inventario
+router.get('/inventario', [verifyToken], farmaciaController.getMedicamentos);
 
-// Crear nuevo medicamento en catálogo (POST)
-router.post('/medicamento', [verifyToken], farmaciaController.createMedicamento);
+// POST Crear (Plural para seguir estándar REST)
+router.post('/medicamentos', [verifyToken, isFarmacia], farmaciaController.crearMedicamento);
 
-// Agregar Stock / Entrada (POST)
-router.post('/stock/entrada', [verifyToken], farmaciaController.addStock);
+// PUT Stock (Unificado)
+router.put('/medicamentos/:id/stock', [verifyToken, isFarmacia], farmaciaController.actualizarStock);
 
-// Quitar Stock / Salida (POST) - NUEVA RUTA
-router.post('/stock/salida', [verifyToken], farmaciaController.removeStock);
+// DELETE Eliminar
+router.delete('/medicamentos/:id', [verifyToken, isFarmacia], farmaciaController.eliminarMedicamento);
 
 module.exports = router;

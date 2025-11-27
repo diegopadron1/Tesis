@@ -77,6 +77,10 @@ db.MovimientoInventario = require("./MovimientoInventario.js")(sequelize, Sequel
 // Órdenes Médicas
 db.OrdenesMedicas = require("./OrdenesMedicas.js")(sequelize, Sequelize);
 
+// Solicitud de Medicamentos
+db.SolicitudMedicamento = require("./SolicitudMedicamento.js")(sequelize, Sequelize);
+
+
 // ==========================================
 // 3. DEFINICIÓN DE RELACIONES
 // ==========================================
@@ -94,5 +98,14 @@ if (db.Paciente && db.OrdenesMedicas) {
   db.Paciente.hasMany(db.OrdenesMedicas, { foreignKey: 'cedula_paciente' });
   db.OrdenesMedicas.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
 }
+
+// Relación Solicitud -> Medicamento
+db.Medicamento.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_medicamento' });
+db.SolicitudMedicamento.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento' });
+
+// Relación Solicitud -> Usuario (Enfermera)
+db.user.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_usuario' });
+db.SolicitudMedicamento.belongsTo(db.user, { foreignKey: 'id_usuario' });
+
 
 module.exports = db;

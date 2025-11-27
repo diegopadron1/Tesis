@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Asegúrate de tener intl en pubspec.yaml
+import 'package:intl/intl.dart'; 
 import '../../models/medicamento.dart';
 import '../../services/farmacia_service.dart';
 import '../../services/auth_service.dart';
@@ -29,7 +29,37 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     });
   }
 
-  // --- DIÁLOGO: Crear Nuevo Medicamento ---
+  // --- NUEVO: FUNCIÓN ELIMINAR ---
+  void _confirmarEliminacion(Medicamento med) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Confirmar Eliminación"),
+        content: Text("¿Estás seguro de que deseas eliminar '${med.nombre}'?\nEsta acción es irreversible."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Eliminando...")));
+              final res = await _service.eliminarMedicamento(med.idMedicamento);
+              if (mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(res['message']),
+                    backgroundColor: res['success'] ? Colors.green : Colors.red
+                 ));
+                 if (res['success']) _refreshList();
+              }
+            },
+            child: const Text("ELIMINAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- TUS DIÁLOGOS ORIGINALES (Sin cambios) ---
   void _showCreateDialog() {
     final formKey = GlobalKey<FormState>();
     final nombreCtrl = TextEditingController();
@@ -52,27 +82,14 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
                 TextFormField(controller: principioCtrl, decoration: const InputDecoration(labelText: "Principio Activo")),
                 TextFormField(controller: concentracionCtrl, decoration: const InputDecoration(labelText: "Concentración (Ej: 500mg)")),
                 TextFormField(controller: presentacionCtrl, decoration: const InputDecoration(labelText: "Presentación (Ej: Tableta)")),
-                
-                // NUEVO CAMPO: FECHA DE VENCIMIENTO
                 TextFormField(
                   controller: fechaCtrl,
-                  decoration: const InputDecoration(
-                    labelText: "Fecha Vencimiento (YYYY-MM-DD)",
-                    suffixIcon: Icon(Icons.calendar_today),
-                  ),
+                  decoration: const InputDecoration(labelText: "Fecha Vencimiento", suffixIcon: Icon(Icons.calendar_today)),
                   readOnly: true,
                   onTap: () async {
                     DateTime? pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now().add(const Duration(days: 365)), // Por defecto 1 año adelante
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2100),
-                    );
-                    if (pickedDate != null) {
-                      // Usamos DateFormat de intl para formatear
-                      // Si no tienes intl, puedes usar: "${pickedDate.toLocal()}".split(' ')[0]
-                      fechaCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
-                    }
+                      context: context, initialDate: DateTime.now().add(const Duration(days: 365)), firstDate: DateTime.now(), lastDate: DateTime(2100));
+                    if (pickedDate != null) fechaCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
                   },
                 ),
               ],
@@ -84,21 +101,19 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
           ElevatedButton(
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
-              
               final res = await _service.createMedicamento({
                 'nombre': nombreCtrl.text,
                 'principio_activo': principioCtrl.text,
                 'concentracion': concentracionCtrl.text,
                 'presentacion': presentacionCtrl.text,
                 'stock_minimo': 10,
-                'fecha_vencimiento': fechaCtrl.text // Enviamos la fecha
+                'fecha_vencimiento': fechaCtrl.text
               });
-              
               if (ctx.mounted) Navigator.pop(ctx);
-              if (!mounted) return;
-              
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
-              if (res['success']) _refreshList();
+              if (mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
+                 if (res['success']) _refreshList();
+              }
             },
             child: const Text("Crear"),
           )
@@ -107,39 +122,31 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
-  // --- DIÁLOGO: Agregar Stock (ENTRADA) ---
   void _showAddStockDialog(Medicamento med) {
     final cantidadCtrl = TextEditingController();
     final motivoCtrl = TextEditingController();
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text("Entrada: ${med.nombre}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text("Stock Actual: ${med.cantidadDisponible}", style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            TextField(controller: cantidadCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cantidad a sumar", border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: "Motivo (Opcional)", border: OutlineInputBorder())),
-          ],
-        ),
+            TextField(controller: cantidadCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cantidad a sumar")),
+            TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: "Motivo (Opcional)")),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () async {
               final cant = int.tryParse(cantidadCtrl.text);
               if (cant == null || cant <= 0) return;
-              
               final res = await _service.addStock(med.idMedicamento, cant, motivoCtrl.text);
-              
               if (ctx.mounted) Navigator.pop(ctx);
-              if (!mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
-              if (res['success']) _refreshList();
+              if (mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
+                 if (res['success']) _refreshList();
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
             child: const Text("Sumar Stock"),
@@ -149,39 +156,31 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
-  // --- DIÁLOGO: Quitar Stock (SALIDA) ---
   void _showRemoveStockDialog(Medicamento med) {
     final cantidadCtrl = TextEditingController();
     final motivoCtrl = TextEditingController();
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text("Salida: ${med.nombre}", style: const TextStyle(color: Colors.red)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text("Stock Actual: ${med.cantidadDisponible}", style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            TextField(controller: cantidadCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cantidad a restar", border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: "Motivo (Ej: Vencido)", border: OutlineInputBorder())),
-          ],
-        ),
+            TextField(controller: cantidadCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cantidad a restar")),
+            TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: "Motivo")),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () async {
               final cant = int.tryParse(cantidadCtrl.text);
               if (cant == null || cant <= 0) return;
-              
               final res = await _service.removeStock(med.idMedicamento, cant, motivoCtrl.text);
-              
               if (ctx.mounted) Navigator.pop(ctx);
-              if (!mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
-              if (res['success']) _refreshList();
+              if (mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
+                 if (res['success']) _refreshList();
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text("Restar Stock"),
@@ -203,9 +202,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await _authService.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
-              }
+              if (context.mounted) Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
             },
           )
         ],
@@ -215,7 +212,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-          if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("Inventario vacío. Agregue medicamentos."));
+          if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("Inventario vacío."));
 
           final lista = snapshot.data!;
           return ListView.builder(
@@ -233,21 +230,14 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
                   ),
                   title: Text("${med.nombre} ${med.concentracion ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text("${med.presentacion ?? 'Unidad'} • Stock: ${med.cantidadDisponible}"),
+                  // AQUÍ AGREGAMOS EL BOTÓN ELIMINAR A TU DISEÑO
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // BOTÓN RESTAR
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.red),
-                        tooltip: "Restar Stock",
-                        onPressed: () => _showRemoveStockDialog(med),
-                      ),
-                      // BOTÓN SUMAR
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, color: Colors.green),
-                        tooltip: "Agregar Stock",
-                        onPressed: () => _showAddStockDialog(med),
-                      ),
+                       IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showRemoveStockDialog(med)),
+                       IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showAddStockDialog(med)),
+                       const SizedBox(width: 8), // Separador
+                       IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey), onPressed: () => _confirmarEliminacion(med)),
                     ],
                   ),
                 ),

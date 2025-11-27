@@ -28,4 +28,17 @@ class Medicamento {
       stockMinimo: json['stock_minimo'] ?? 10,
     );
   }
+
+  // Agregamos toJson para evitar errores de serialización en el futuro
+  Map<String, dynamic> toJson() {
+    return {
+      'id_medicamento': idMedicamento,
+      'nombre': nombre,
+      'principio_activo': principioActivo,
+      'concentracion': concentracion,
+      'presentacion': presentacion,
+      'cantidad_disponible': cantidadDisponible,
+      'stock_minimo': stockMinimo,
+    };
+  }
 }

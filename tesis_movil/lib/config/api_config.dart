@@ -19,7 +19,9 @@ class ApiConfig {
   static const String antecedentesFamiliarUrl = "$baseUrl/antecedentes/familiar";
   static const String antecedentesHabitosUrl = "$baseUrl/antecedentes/habitos";
   static const String farmaciaInventarioUrl = "$baseUrl/farmacia/inventario";
-  static const String farmaciaCrearUrl = "$baseUrl/farmacia/medicamento";
-  static const String farmaciaStockUrl = "$baseUrl/farmacia/stock/entrada";
-  static const String farmaciaSalidaUrl = "$baseUrl/farmacia/stock/salida";
+  static const String farmaciaCrearUrl = "$baseUrl/farmacia/medicamentos";
+   static const String farmaciaStockUrl = "$baseUrl/farmacia/medicamentos"; 
+  static const String farmaciaSalidaUrl = "$baseUrl/farmacia/medicamentos";
+  static const String enfermeriaOrdenesUrl = "$baseUrl/enfermeria/ordenes/pendientes";
+  static const String enfermeriaSolicitarUrl = "$baseUrl/enfermeria/solicitar";
 } 
