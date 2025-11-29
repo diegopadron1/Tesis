@@ -1,10 +1,11 @@
-// lib/screens/home_screen.dart (Modificado)
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'admin_board_screen.dart';
 import 'resident/resident_home_screen.dart';
 import 'pharmacy/farmacia_inventory_screen.dart';
 import 'nurse/nurse_home_screen.dart';
+// 1. IMPORTANTE: Agregamos la importación que faltaba
+import 'historia_clinica_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,16 +84,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             
-            if (_rol == 'Residente')
-              ListTile(
-                leading: const Icon(Icons.medical_services),
-                title: const Text('Módulo de Residentes'),
-                onTap: () {
-                 Navigator.pop(context);
-                 Navigator.push(context, MaterialPageRoute(builder: (_) => const ResidentHomeScreen()));
-               },
-             ),
-
             if (_rol == 'Farmacia')
               ListTile(
                 leading: const Icon(Icons.local_pharmacy),
@@ -103,7 +94,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
-            // Acceso al módulo completo para gestionar las órdenes
             if (_rol != null && _rol!.toLowerCase().contains('enfermer'))
                ListTile(
                 leading: const Icon(Icons.health_and_safety),
@@ -114,6 +104,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const NurseHomeScreen()));
                 },
               ),
+
+            // 2. CAMBIO AQUÍ: LÓGICA PARA RESIDENTES Y ESPECIALISTAS
+            if (_rol == 'Residente' || _rol == 'Especialista') ...[
+               // El Residente ve su módulo habitual
+               if (_rol == 'Residente')
+                ListTile(
+                  leading: const Icon(Icons.medical_services),
+                  title: const Text('Módulo de Residentes'),
+                  onTap: () {
+                   Navigator.pop(context);
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => const ResidentHomeScreen()));
+                 },
+               ),
+
+               const Divider(), 
+               
+               // AMBOS ven el nuevo módulo de Historia Clínica
+               ListTile(
+                leading: const Icon(Icons.history_edu, color: Colors.indigo),
+                title: const Text('Historia Clínica'),
+                subtitle: const Text('Ver y actualizar pacientes'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoriaClinicaScreen()));
+                },
+              ),
+            ],
             
             const Divider(),
             ListTile(
@@ -125,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       
-      // CUERPO: Si es enfermera, mostramos la lista SOLO LECTURA
+      // CUERPO DE LA PANTALLA
       body: _rol != null && _rol!.toLowerCase().contains('enfermer')
           ? Column(
               children: [
@@ -135,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.pink[50],
                   child: Row(
                     children: [
-                      Icon(Icons.visibility, color: Colors.pink[800]), // Ícono de "Ver"
+                      Icon(Icons.visibility, color: Colors.pink[800]),
                       const SizedBox(width: 10),
                       Text(
                         "Resumen de Pendientes",
@@ -144,7 +161,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                // Pasamos allowActions: false para ocultar los botones
                 const Expanded(child: OrdenesPendientesTab(allowActions: false)),
               ],
             )
@@ -157,6 +173,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text('¡Hola, ${_rol ?? 'Usuario'}!', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   const Text('Selecciona una opción del menú lateral.', style: TextStyle(color: Colors.grey)),
+                  
+                  // 3. TIP VISUAL PARA MÉDICOS
+                  if (_rol == 'Residente' || _rol == 'Especialista')
+                    const Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: Text('💡 Tip: Usa "Historia Clínica" para\ngestionar pacientes y órdenes.', textAlign: TextAlign.center, style: TextStyle(color: Colors.indigo)),
+                    )
                 ],
               ),
             ),

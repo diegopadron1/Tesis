@@ -13,6 +13,7 @@ const examenRoutes = require('./routes/examen.routes');
 const antecedentesRoutes = require('./routes/antecedentes.routes');
 const farmaciaRoutes = require('./routes/farmacia.routes');
 const enfermeriaRoutes = require('./routes/enfermeria.routes');
+const historiaRoutes = require('./routes/historia.routes');
 
 // Rutas de autenticación y usuario (Si no están en los archivos de arriba)
 // require('./routes/auth.routes')(app); -> Lo moveremos abajo para integrarlo correctamente
@@ -47,6 +48,7 @@ app.use('/api', examenRoutes);
 app.use('/api', antecedentesRoutes);
 app.use('/api/farmacia', farmaciaRoutes);
 app.use('/api/enfermeria', enfermeriaRoutes);
+app.use('/api/historia', historiaRoutes);
 
 // Importamos rutas que funcionan con require(app)
 require('./routes/auth.routes')(app);

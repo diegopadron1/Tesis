@@ -24,4 +24,7 @@ class ApiConfig {
   static const String farmaciaSalidaUrl = "$baseUrl/farmacia/medicamentos";
   static const String enfermeriaOrdenesUrl = "$baseUrl/enfermeria/ordenes/pendientes";
   static const String enfermeriaSolicitarUrl = "$baseUrl/enfermeria/solicitar";
+  static const String historiaBaseUrl = "$baseUrl/historia"; 
+  static const String historiaSeccionUrl = "$baseUrl/historia/seccion"; 
+  static const String historiaOrdenUrl = "$baseUrl/historia/orden";
 } 

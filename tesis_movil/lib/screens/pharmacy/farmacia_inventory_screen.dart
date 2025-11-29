@@ -29,7 +29,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     });
   }
 
-  // --- NUEVO: FUNCIÓN ELIMINAR ---
+  // --- FUNCIÓN ELIMINAR ---
   void _confirmarEliminacion(Medicamento med) {
     showDialog(
       context: context,
@@ -59,7 +59,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
-  // --- TUS DIÁLOGOS ORIGINALES (Sin cambios) ---
+  // --- DIÁLOGOS (Crear, Agregar, Quitar) ---
   void _showCreateDialog() {
     final formKey = GlobalKey<FormState>();
     final nombreCtrl = TextEditingController();
@@ -229,14 +229,36 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
                     child: Icon(Icons.medication, color: med.cantidadDisponible <= med.stockMinimo ? Colors.red : Colors.green[800]),
                   ),
                   title: Text("${med.nombre} ${med.concentracion ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("${med.presentacion ?? 'Unidad'} • Stock: ${med.cantidadDisponible}"),
-                  // AQUÍ AGREGAMOS EL BOTÓN ELIMINAR A TU DISEÑO
+                  
+                  // --- CAMBIO AQUÍ: SUBTÍTULO CON DOS LÍNEAS ---
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("${med.presentacion ?? 'Unidad'} • Stock: ${med.cantidadDisponible}"),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            med.fechaVencimiento != null ? "Vence: ${med.fechaVencimiento}" : "Sin fecha de vencimiento",
+                            style: TextStyle(
+                              color: Colors.grey[700], 
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                        IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showRemoveStockDialog(med)),
                        IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showAddStockDialog(med)),
-                       const SizedBox(width: 8), // Separador
+                       const SizedBox(width: 8), 
                        IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey), onPressed: () => _confirmarEliminacion(med)),
                     ],
                   ),

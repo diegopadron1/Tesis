@@ -1,8 +1,6 @@
-// models/index.js
 const config = require("../config/db.config.js");
 const Sequelize = require("sequelize");
 
-// 1. VALIDACIONES DE SEGURIDAD
 const poolConfig = config.pool || {
   max: 5,
   min: 0,
@@ -35,12 +33,11 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// Función de conexión
 db.connectDB = async () => {
     try {
         await sequelize.authenticate();
         console.log('✅ Conexión a PostgreSQL establecida correctamente.');
-        await sequelize.sync(); 
+        await sequelize.sync({ alter: true }); 
         console.log('✅ Base de datos sincronizada.');
     } catch (error) {
         console.error('❌ Error fatal: No se pudo conectar a la base de datos:', error);
@@ -52,10 +49,7 @@ db.connectDB = async () => {
 // 2. IMPORTACIÓN DE MODELOS
 // ==========================================
 
-// --- Autenticación ---
 db.user = require("./Usuario.js")(sequelize, Sequelize);
-
-// CORREGIDO: Usamos Rol.js (Mayúscula)
 db.role = require("./Rol.js")(sequelize, Sequelize);
 
 // Módulos Clínicos
@@ -76,8 +70,6 @@ db.MovimientoInventario = require("./MovimientoInventario.js")(sequelize, Sequel
 
 // Órdenes Médicas
 db.OrdenesMedicas = require("./OrdenesMedicas.js")(sequelize, Sequelize);
-
-// Solicitud de Medicamentos
 db.SolicitudMedicamento = require("./SolicitudMedicamento.js")(sequelize, Sequelize);
 
 
@@ -85,27 +77,44 @@ db.SolicitudMedicamento = require("./SolicitudMedicamento.js")(sequelize, Sequel
 // 3. DEFINICIÓN DE RELACIONES
 // ==========================================
 
-// Roles y Usuarios
-db.role.belongsToMany(db.user, { through: "user_roles" });
-db.user.belongsToMany(db.role, { through: "user_roles" });
+// --- CORRECCIÓN CRÍTICA AQUÍ ---
+// Cambiamos belongsToMany por hasMany/belongsTo para que coincida con tu lógica de 'id_rol'
+db.role.hasMany(db.user, { foreignKey: "id_rol" });
+db.user.belongsTo(db.role, { foreignKey: "id_rol", as: "rol" }); // 'as: rol' es importante para el include
 
-// Relaciones Farmacia
+// Farmacia
 db.Medicamento.hasMany(db.MovimientoInventario, { foreignKey: 'id_medicamento' });
 db.MovimientoInventario.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento' });
-
-// Relaciones Clínicas
-if (db.Paciente && db.OrdenesMedicas) {
-  db.Paciente.hasMany(db.OrdenesMedicas, { foreignKey: 'cedula_paciente' });
-  db.OrdenesMedicas.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
-}
-
-// Relación Solicitud -> Medicamento
 db.Medicamento.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_medicamento' });
 db.SolicitudMedicamento.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento' });
-
-// Relación Solicitud -> Usuario (Enfermera)
 db.user.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_usuario' });
 db.SolicitudMedicamento.belongsTo(db.user, { foreignKey: 'id_usuario' });
 
+// Relaciones Clínicas (Tus agregados)
+if (db.Paciente) {
+    db.Paciente.hasOne(db.MotivoConsulta, { foreignKey: 'cedula_paciente' });
+    db.MotivoConsulta.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasOne(db.Diagnostico, { foreignKey: 'cedula_paciente' });
+    db.Diagnostico.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasOne(db.ExamenFisico, { foreignKey: 'cedula_paciente' });
+    db.ExamenFisico.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasOne(db.ExamenFuncional, { foreignKey: 'cedula_paciente' });
+    db.ExamenFuncional.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasOne(db.AntecedentesPersonales, { foreignKey: 'cedula_paciente' });
+    db.AntecedentesPersonales.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasOne(db.AntecedentesFamiliares, { foreignKey: 'cedula_paciente' });
+    db.AntecedentesFamiliares.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasOne(db.HabitosPsicobiologicos, { foreignKey: 'cedula_paciente' });
+    db.HabitosPsicobiologicos.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+    db.Paciente.hasMany(db.OrdenesMedicas, { foreignKey: 'cedula_paciente' });
+    db.OrdenesMedicas.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+}
 
 module.exports = db;
