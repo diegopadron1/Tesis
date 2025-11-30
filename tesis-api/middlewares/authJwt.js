@@ -1,68 +1,49 @@
-// middlewares/authJwt.js
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = process.env.JWT_SECRET; // Usamos la clave del .env
+const config = require("../config/auth.config.js"); // <--- LA SOLUCIÓN
 
-// 1. Middleware para verificar el Token JWT
+// 1. Verificar Token
 const verifyToken = (req, res, next) => {
-    // 1.1 Obtener el token del header
     let token = req.headers["x-access-token"];
 
     if (!token) {
-        return res.status(403).send({
-            message: "Se requiere un token de acceso!"
-        });
+        return res.status(403).send({ message: "Se requiere un token de acceso!" });
     }
 
-    // 1.2 Verificar la validez del token
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, config.secret, (err, decoded) => {
         if (err) {
-            return res.status(401).send({
-                message: "Acceso no autorizado! Token inválido o expirado."
-            });
+            return res.status(401).send({ message: "Acceso no autorizado! Token inválido." });
         }
-        
-        // 1.3 Si es válido, guardamos la cédula y el rol del usuario en la solicitud (req)
         req.cedula = decoded.cedula;
-        req.rol = decoded.rol; 
-        next(); // Permite que la solicitud continúe al siguiente controlador
+        req.rol = decoded.rol;
+        next();
     });
 };
 
-// 2. Middleware para verificar si el usuario es Administrador
+// 2. Admin
 const isAdmin = (req, res, next) => {
-    // Asumimos que el rol ya fue decodificado y guardado en req.rol por verifyToken
     if (req.rol === "Administrador") {
-        next(); // Es Administrador, puede continuar
+        next();
         return;
     }
-
-    res.status(403).send({
-        message: "Se requiere Rol de Administrador para esta acción."
-    });
+    res.status(403).send({ message: "Se requiere Rol de Administrador." });
 };
 
-// 3. Middleware para verificar si es Farmacia
+// 3. Farmacia
 const isFarmacia = (req, res, next) => {
     if (req.rol === "Farmacia") {
         next();
         return;
     }
-
-    res.status(403).send({
-        message: "Se requiere Rol de Farmacia para esta acción."
-    });
+    res.status(403).send({ message: "Se requiere Rol de Farmacia." });
 };
 
-// 4. Middleware para verificar si es Médico (Residente o Especialista)
+// 4. Resident/Especialista
 const isResident = (req, res, next) => {
     if (req.rol === "Residente" || req.rol === "Especialista") {
         next();
         return;
     }
-
-    res.status(403).send({
-        message: "Se requiere Rol de Médico (Residente/Especialista) para esta acción."
-    });
+    res.status(403).send({ message: "Se requiere Rol Médico." });
 };
 
 const isAdminOrResident = (req, res, next) => {
@@ -70,17 +51,14 @@ const isAdminOrResident = (req, res, next) => {
         next();
         return;
     }
-
-    res.status(403).send({
-        message: "Se requiere Rol de Administrador o Residente para esta acción."
-    });
+    res.status(403).send({ message: "Se requiere Admin o Residente." });
 };
 
 const authJwt = {
     verifyToken,
     isAdmin,
     isFarmacia,
-    isResident, 
+    isResident,
     isAdminOrResident
 };
 

@@ -1,27 +1,25 @@
 const db = require('../models');
+const config = require("../config/auth.config"); // <--- IMPORTAMOS LA CONFIG
 const Usuario = db.user; 
 const Rol = db.role;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || "clave-secreta-temporal";
+// YA NO NECESITAMOS DEFINIR LA CLAVE AQUÍ
+// const JWT_SECRET = ... (Borrar esta línea)
 
 exports.signin = async (req, res) => {
     try {
         const { cedula, password } = req.body;
 
-        // 1. Buscar el usuario
         const user = await Usuario.findOne({
             where: { cedula: cedula }
         });
 
         if (!user) {
-            return res.status(404).send({ 
-                message: "Usuario no encontrado." 
-            });
+            return res.status(404).send({ message: "Usuario no encontrado." });
         }
 
-        // 2. Comparar contraseña
         const passwordIsValid = bcrypt.compareSync(
             password,
             user.password
@@ -34,7 +32,6 @@ exports.signin = async (req, res) => {
             });
         }
 
-        // 3. Obtener el nombre del Rol
         let nombreRol = "Usuario";
         if (user.id_rol) {
             const rolEncontrado = await Rol.findByPk(user.id_rol);
@@ -43,27 +40,25 @@ exports.signin = async (req, res) => {
             }
         }
 
-        // 4. Generar Token
+        // USAMOS config.secret AQUÍ
         const token = jwt.sign(
             { 
                 cedula: user.cedula,
                 rol: nombreRol
             },
-            JWT_SECRET,
+            config.secret, // <--- LA CLAVE CENTRALIZADA
             {
                 expiresIn: 86400 
             }
         );
 
-        // 5. Responder (CORRECCIÓN AQUÍ)
-        // Enviamos 'rol' en singular porque así lo espera tu AuthService en Flutter
         res.status(200).send({
             cedula: user.cedula,
             nombre: user.nombre,
             apellido: user.apellido,
             email: user.email,
-            rol: nombreRol,       // <--- ESTA LÍNEA ES LA CLAVE (Singular)
-            roles: [nombreRol],   // Dejamos este por si acaso en el futuro lo necesitas
+            rol: nombreRol,
+            roles: [nombreRol],
             accessToken: token
         });
 

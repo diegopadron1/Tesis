@@ -1,5 +1,6 @@
 const db = require('../models');
 const Paciente = db.Paciente;
+const ContactoEmergencia = db.ContactoEmergencia;
 const MotivoConsulta = db.MotivoConsulta;
 const ExamenFisico = db.ExamenFisico;
 const ExamenFuncional = db.ExamenFuncional;
@@ -20,6 +21,7 @@ exports.getHistoriaClinica = async (req, res) => {
         const paciente = await Paciente.findOne({
             where: { cedula: cedula },
             include: [
+                { model: ContactoEmergencia },
                 { model: MotivoConsulta },
                 { model: ExamenFisico },
                 { model: ExamenFuncional },
@@ -73,6 +75,9 @@ exports.guardarSeccion = async (req, res) => {
             case 'datos_personales':
                 await Paciente.update(datos, { where: { cedula: cedula } });
                 resultado = { message: "Datos personales actualizados." };
+                break;
+            case 'contacto_emergencia':
+                resultado = await upsertSeccion(ContactoEmergencia, datos, where);
                 break;
             case 'motivo':
                 resultado = await upsertSeccion(MotivoConsulta, datos, where);

@@ -26,12 +26,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
       
       if (!mounted) return; 
 
-      debugPrint("------------------------------------------");
-      debugPrint("DATOS RECIBIDOS DEL PACIENTE:");
-      debugPrint("Llaves principales: ${data.keys.toList()}"); 
-      debugPrint("Data Completa: $data");
-      debugPrint("------------------------------------------");
-
       setState(() {
         if (data.isEmpty) {
           _notFound = true;
@@ -124,73 +118,82 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: (d) => _guardarSeccion('datos_personales', d),
                   ),
 
-                  // 2. MOTIVO CONSULTA (Corregido según log)
+                  // CONTACTO DE EMERGENCIA (NUEVA SECCIÓN)
+                  _SeccionGenerica(
+                    titulo: "Contacto de Emergencia",
+                    icon: Icons.contact_phone,
+                    data: _pacienteData!['ContactoEmergencium'] ?? _pacienteData!['ContactoEmergencia'] ?? {}, 
+                    campos: const ['nombre_apellido', 'parentesco', 'cedula_contacto'],
+                    seccionKey: 'contacto_emergencia', 
+                    onSave: _guardarSeccion,
+                  ),
+
+                  // 2. MOTIVO CONSULTA
                   _SeccionGenerica(
                     titulo: "Motivo de Consulta",
                     icon: Icons.chat_bubble_outline,
                     data: _pacienteData!['MotivoConsultum'] ?? {}, 
-                    campos: const ['motivo_consulta'], // <--- CAMBIO AQUÍ
+                    campos: const ['motivo_consulta'], 
                     seccionKey: 'motivo',
                     onSave: _guardarSeccion,
                   ),
 
-                  // 3. DIAGNÓSTICO (Este parecía no estar en el log, lo dejamos genérico o revisamos si existe)
-                  // Nota: En tu log salía 'Diagnostico': null o similar si no tenía.
+                  // 3. DIAGNÓSTICO
                   _SeccionGenerica(
                     titulo: "Diagnóstico",
                     icon: Icons.local_hospital,
                     data: _pacienteData!['Diagnostico'] ?? {},
-                    campos: const ['descripcion_diagnostico', 'tipo_diagnostico', 'observaciones'],
+                    campos: const ['descripcion', 'tipo', 'observaciones'],
                     seccionKey: 'diagnostico',
                     onSave: _guardarSeccion,
                   ),
 
-                  // 4. EXAMEN FÍSICO (Corregido según log)
+                  // 4. EXAMEN FÍSICO
                   _SeccionGenerica(
                     titulo: "Examen Físico",
                     icon: Icons.accessibility_new,
                     data: _pacienteData!['ExamenFisico'] ?? {},
-                    campos: const ['area', 'hallazgos'], // <--- CAMBIO AQUÍ
+                    campos: const ['area', 'hallazgos'], 
                     seccionKey: 'fisico',
                     onSave: _guardarSeccion,
                   ),
 
-                  // 5. EXAMEN FUNCIONAL (Corregido según log)
+                  // 5. EXAMEN FUNCIONAL
                   _SeccionGenerica(
                     titulo: "Examen Funcional",
                     icon: Icons.directions_walk,
                     data: _pacienteData!['ExamenFuncional'] ?? {},
-                    campos: const ['sistema', 'hallazgos'], // <--- CAMBIO AQUÍ
+                    campos: const ['sistema', 'hallazgos'], 
                     seccionKey: 'funcional',
                     onSave: _guardarSeccion,
                   ),
 
-                  // 6. ANTECEDENTES PERSONALES (Corregido según log)
+                  // 6. ANTECEDENTES PERSONALES
                   _SeccionGenerica(
                     titulo: "Antecedentes Personales",
                     icon: Icons.history,
                     data: _pacienteData!['AntecedentesPersonale'] ?? {}, 
-                    campos: const ['tipo', 'detalle'], // <--- CAMBIO AQUÍ
+                    campos: const ['tipo', 'detalle'], 
                     seccionKey: 'ant_pers',
                     onSave: _guardarSeccion,
                   ),
 
-                  // 7. ANTECEDENTES FAMILIARES (Corregido según log)
+                  // 7. ANTECEDENTES FAMILIARES
                    _SeccionGenerica(
                     titulo: "Antecedentes Familiares",
                     icon: Icons.family_restroom,
                     data: _pacienteData!['AntecedentesFamiliare'] ?? {}, 
-                    campos: const ['tipo_familiar', 'vivo_muerto', 'edad', 'patologias'], // <--- CAMBIO AQUÍ
+                    campos: const ['tipo_familiar', 'vivo_muerto', 'edad', 'patologias'], 
                     seccionKey: 'ant_fam',
                     onSave: _guardarSeccion,
                   ),
 
-                  // 8. HÁBITOS (Corregido según log)
+                  // 8. HÁBITOS
                   _SeccionGenerica(
                     titulo: "Hábitos Psicobiológicos",
                     icon: Icons.smoking_rooms,
                     data: _pacienteData!['HabitosPsicobiologico'] ?? {}, 
-                    campos: const ['cafe', 'tabaco', 'alcohol', 'drogas_ilicitas', 'ocupacion'], // <--- CAMBIO AQUÍ
+                    campos: const ['cafe', 'tabaco', 'alcohol', 'drogas_ilicitas', 'ocupacion', 'sueño', 'vivienda'], 
                     seccionKey: 'ant_hab',
                     onSave: _guardarSeccion,
                   ),
@@ -420,7 +423,7 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
   }
 }
 
-// --- WIDGET DATOS PERSONALES ---
+// --- WIDGET DATOS PERSONALES (ACTUALIZADO SEGÚN Paciente.js) ---
 class _SeccionDatosPersonales extends StatefulWidget {
   final Map<String, dynamic> data;
   final Function(Map<String, dynamic>) onSave;
@@ -432,8 +435,15 @@ class _SeccionDatosPersonales extends StatefulWidget {
 }
 
 class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
+  // 1. Controladores para TODOS los campos del modelo Paciente
   late TextEditingController _nombreCtrl;
-  late TextEditingController _contactoCtrl;
+  late TextEditingController _telefonoCtrl;
+  late TextEditingController _direccionCtrl;
+  late TextEditingController _estadoCivilCtrl; // Mayúscula según BD
+  late TextEditingController _religionCtrl;    // Mayúscula según BD
+  late TextEditingController _fechaNacCtrl;
+  late TextEditingController _lugarNacCtrl;
+
   bool _isEditing = false;
 
   @override
@@ -443,8 +453,30 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
   }
 
   void _initCtrls() {
-    _nombreCtrl = TextEditingController(text: widget.data['nombre_apellido']);
-    _contactoCtrl = TextEditingController(text: widget.data['contacto_emergencia']);
+    // 2. Inicialización segura con los nombres exactos de la BD
+    _nombreCtrl = TextEditingController(text: widget.data['nombre_apellido']?.toString() ?? '');
+    _telefonoCtrl = TextEditingController(text: widget.data['telefono']?.toString() ?? '');
+    _direccionCtrl = TextEditingController(text: widget.data['direccion_actual']?.toString() ?? '');
+    _estadoCivilCtrl = TextEditingController(text: widget.data['Estado_civil']?.toString() ?? '');
+    _religionCtrl = TextEditingController(text: widget.data['Religion']?.toString() ?? '');
+    _fechaNacCtrl = TextEditingController(text: widget.data['fecha_nacimiento']?.toString() ?? '');
+    _lugarNacCtrl = TextEditingController(text: widget.data['lugar_nacimiento']?.toString() ?? '');
+  }
+
+  // Selector de Fecha
+  Future<void> _selectDate(BuildContext context) async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(_fechaNacCtrl.text) ?? DateTime(2000),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      String formatted = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      setState(() {
+        _fechaNacCtrl.text = formatted;
+      });
+    }
   }
 
   @override
@@ -468,32 +500,101 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: _isEditing 
-              ? Column( 
+              ? Column( // --- MODO EDICIÓN ---
                   children: [
-                    TextField(controller: _nombreCtrl, decoration: const InputDecoration(labelText: "Nombre y Apellido", border: OutlineInputBorder())),
-                    const SizedBox(height: 10),
-                    TextField(controller: _contactoCtrl, decoration: const InputDecoration(labelText: "Contacto Emergencia", border: OutlineInputBorder())),
-                    const SizedBox(height: 10),
+                    _buildTextField(_nombreCtrl, "Nombre y Apellido"),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField(_telefonoCtrl, "Teléfono", isNumber: true)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: TextField(
+                              controller: _fechaNacCtrl,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: "Fecha Nacimiento", 
+                                border: OutlineInputBorder(), 
+                                isDense: true,
+                                suffixIcon: Icon(Icons.calendar_today, size: 18)
+                              ),
+                              onTap: () => _selectDate(context),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    _buildTextField(_lugarNacCtrl, "Lugar de Nacimiento"),
+                    _buildTextField(_direccionCtrl, "Dirección Actual"),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField(_estadoCivilCtrl, "Estado Civil")),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildTextField(_religionCtrl, "Religión")),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
                     ElevatedButton.icon(
                       onPressed: () {
-                         widget.onSave({ 'nombre_apellido': _nombreCtrl.text, 'contacto_emergencia': _contactoCtrl.text });
+                         // 3. Enviar todos los campos del modelo
+                         widget.onSave({ 
+                           'nombre_apellido': _nombreCtrl.text, 
+                           'telefono': _telefonoCtrl.text,
+                           'fecha_nacimiento': _fechaNacCtrl.text,
+                           'lugar_nacimiento': _lugarNacCtrl.text,
+                           'direccion_actual': _direccionCtrl.text,
+                           'Estado_civil': _estadoCivilCtrl.text,
+                           'Religion': _religionCtrl.text,
+                         });
                          setState(() => _isEditing = false);
                       },
                       icon: const Icon(Icons.save),
-                      label: const Text("Actualizar"),
+                      label: const Text("Actualizar Datos"),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
                     )
                   ],
                 )
-              : Column( 
+              : Column( // --- MODO LECTURA ---
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Nombre: ${_nombreCtrl.text}", style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 5),
-                    Text("Contacto Emergencia: ${_contactoCtrl.text.isEmpty ? 'No registrado' : _contactoCtrl.text}", style: const TextStyle(fontSize: 16)),
+                    _buildInfoRow("Nombre", _nombreCtrl.text),
+                    _buildInfoRow("F. Nacimiento", _fechaNacCtrl.text),
+                    _buildInfoRow("Lugar Nac.", _lugarNacCtrl.text),
+                    _buildInfoRow("Teléfono", _telefonoCtrl.text),
+                    _buildInfoRow("Dirección", _direccionCtrl.text),
+                    _buildInfoRow("Estado Civil", _estadoCivilCtrl.text),
+                    _buildInfoRow("Religión", _religionCtrl.text),
                   ],
                 ),
           )
+        ],
+      ),
+    );
+  }
+
+  // Helpers internos para esta clase
+  Widget _buildTextField(TextEditingController ctrl, String label, {bool isNumber = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: ctrl,
+        keyboardType: isNumber ? TextInputType.phone : TextInputType.text,
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    if (value == 'null' || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+          const SizedBox(width: 5),
+          Expanded(child: Text(value)),
         ],
       ),
     );

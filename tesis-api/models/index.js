@@ -54,6 +54,7 @@ db.role = require("./Rol.js")(sequelize, Sequelize);
 
 // Módulos Clínicos
 db.Paciente = require("./Paciente.js")(sequelize, Sequelize);
+db.ContactoEmergencia = require("./ContactoEmergencia.js")(sequelize, Sequelize);
 db.MotivoConsulta = require("./MotivoConsulta.js")(sequelize, Sequelize);
 db.Diagnostico = require("./Diagnostico.js")(sequelize, Sequelize);
 db.ExamenFisico = require("./ExamenFisico.js")(sequelize, Sequelize);
@@ -92,6 +93,9 @@ db.SolicitudMedicamento.belongsTo(db.user, { foreignKey: 'id_usuario' });
 
 // Relaciones Clínicas (Tus agregados)
 if (db.Paciente) {
+    db.Paciente.hasOne(db.ContactoEmergencia, { foreignKey: 'cedula_paciente' });
+    db.ContactoEmergencia.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+  
     db.Paciente.hasOne(db.MotivoConsulta, { foreignKey: 'cedula_paciente' });
     db.MotivoConsulta.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
 
