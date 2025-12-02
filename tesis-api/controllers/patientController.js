@@ -1,7 +1,8 @@
 // controllers/patientController.js
 
 const { check, validationResult } = require('express-validator');
-const { sequelize } = require('../config/db.config'); // Importa sequelize
+const db = require('../models'); 
+const sequelize = db.sequelize; 
 const { QueryTypes } = require('sequelize');
 
 /**
