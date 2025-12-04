@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import necesario para FilteringTextInputFormatter
 // Corregimos las rutas: Retrocedemos 2 niveles (../../) para llegar a lib/
 import '../../services/historia_service.dart';
 // Estas están en la misma carpeta, así que no llevan ruta, solo el nombre
@@ -120,6 +121,12 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
             TextField(
               controller: _cedulaController,
               keyboardType: TextInputType.number,
+              // --- NUEVA RESTRICCIÓN AGREGADA ---
+              // Esto asegura que el usuario SOLO pueda escribir dígitos (0-9)
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly
+              ],
+              // ----------------------------------
               decoration: const InputDecoration(
                 labelText: "Cédula de Identidad",
                 border: OutlineInputBorder(),
