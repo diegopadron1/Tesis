@@ -1,37 +1,38 @@
+// resident_home_screen.dart
 import 'package:flutter/material.dart';
-// Importa la pantalla de registro que ya creamos
-import 'register_patient_screen.dart'; 
+import '../../services/auth_service.dart';
+import '../login_screen.dart';
+
+// Importamos tus pantallas de módulos (Las modificaremos en el Paso 3)
 import 'motivo_consulta_screen.dart'; 
-import 'diagnostico_screen.dart';
 import 'examen_screen.dart';
 import 'antecedentes_screen.dart';
-// Importa el servicio de autenticación si necesitas el botón de cerrar sesión
-import '../../services/auth_service.dart'; 
-import '../login_screen.dart'; 
+import 'diagnostico_screen.dart';
+// import 'register_patient_screen.dart'; // YA NO NECESITAMOS LA PESTAÑA DE REGISTRO AQUÍ
 
 class ResidentHomeScreen extends StatelessWidget {
-  const ResidentHomeScreen({super.key});
+  // Aceptamos los datos del paciente
+  final Map<String, dynamic> pacienteData;
+
+  const ResidentHomeScreen({super.key, required this.pacienteData});
 
   @override
   Widget build(BuildContext context) {
-    // Definimos el AuthService para cerrar sesión
     final AuthService authService = AuthService();
+    final String cedula = pacienteData['cedula'].toString();
 
     return DefaultTabController(
-      length: 6, // seis pestañas
+      length: 5, // Quitamos "Registrar", quedan 5 módulos
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Módulo Residente'),
           backgroundColor: Colors.blue[700],
           foregroundColor: Colors.white,
-          elevation: 5,
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
-              tooltip: 'Cerrar Sesión',
               onPressed: () async {
                 await authService.signOut();
-                // Navegar de vuelta a la pantalla de login
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -41,46 +42,70 @@ class ResidentHomeScreen extends StatelessWidget {
               },
             ),
           ],
-          // Pestañas de navegación
           bottom: const TabBar(
+            isScrollable: true, // Importante si hay muchas pestañas
             tabs: [
-              Tab(icon: Icon(Icons.person_add), text: "Registrar Paciente"),
               Tab(icon: Icon(Icons.note_add), text: "Motivo"),
               Tab(icon: Icon(Icons.accessibility_new), text: "Exámenes"),
               Tab(icon: Icon(Icons.history_edu), text: "Antecedentes"),
               Tab(icon: Icon(Icons.assignment_turned_in), text: "Diagnóstico"),
-              Tab(icon: Icon(Icons.monitor_heart), text: "Triaje (Pendiente)"),
+              Tab(icon: Icon(Icons.monitor_heart), text: "Triaje"),
             ],
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
           ),
         ),
-        body: const TabBarView(
+        body: Column(
           children: [
-            // **AQUÍ SE MUESTRA LA INTERFAZ DE REGISTRO**
-            RegisterPatientScreen(),
-            MotivoConsultaScreen(), 
-            ExamenScreen(),
-            AntecedentesScreen(),
-            DiagnosticoScreen(),
-            // Placeholder para la futura pantalla de Triaje
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            // --- HEADER CON DATOS DEL PACIENTE ---
+            _buildPatientHeader(),
+            
+            // --- PESTAÑAS ---
+            Expanded(
+              child: TabBarView(
                 children: [
-                  Icon(Icons.monitor_heart, size: 80, color: Colors.blueGrey),
-                  SizedBox(height: 10),
-                  Text(
-                    'Aquí irá el Módulo de Triaje',
-                    style: TextStyle(fontSize: 18, color: Colors.blueGrey),
-                  ),
-                  Text('Necesitamos crear el backend y frontend para esto.', textAlign: TextAlign.center,),
+                  // Pasamos la cédula a cada módulo
+                  MotivoConsultaScreen(cedulaPaciente: cedula), 
+                  ExamenScreen(cedulaPaciente: cedula),
+                  AntecedentesScreen(cedulaPaciente: cedula),
+                  DiagnosticoScreen(cedulaPaciente: cedula),
+                  // Placeholder Triaje
+                  const Center(child: Text("Módulo de Triaje en construcción")),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPatientHeader() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      color: Colors.blue[50],
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Colors.blue,
+            child: Icon(Icons.person, color: Colors.white),
+          ),
+          const SizedBox(width: 15),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "${pacienteData['nombre'] ?? pacienteData['nombre_apellido']}",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+              ),
+              Text(
+                "C.I: ${pacienteData['cedula']} | Edad: ${pacienteData['edad'] ?? '?'} años",
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+          )
+        ],
       ),
     );
   }

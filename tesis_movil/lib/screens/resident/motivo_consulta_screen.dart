@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../../services/motivo_consulta_service.dart';
 
 class MotivoConsultaScreen extends StatefulWidget {
-  // Constructor simple: No requiere recibir datos de otra pantalla
-  const MotivoConsultaScreen({super.key});
+  // Aceptamos la cédula desde el Home
+  final String cedulaPaciente;
+
+  const MotivoConsultaScreen({super.key, required this.cedulaPaciente});
 
   @override
   State<MotivoConsultaScreen> createState() => _MotivoConsultaScreenState();
@@ -11,162 +13,68 @@ class MotivoConsultaScreen extends StatefulWidget {
 
 class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Controladores: Uno para la cédula (ahora manual) y otro para el motivo
-  final TextEditingController _cedulaController = TextEditingController();
-  final TextEditingController _motivoController = TextEditingController();
-  
-  final MotivoConsultaService _motivoService = MotivoConsultaService();
-  
+  final _motivoService = MotivoConsultaService(); // Instancia del servicio
+  final _motivoController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _cedulaController.dispose();
     _motivoController.dispose();
     super.dispose();
   }
 
   void _guardarMotivo() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
-    // Enviamos los datos capturados en los inputs al servicio
+    // Usamos widget.cedulaPaciente
     final result = await _motivoService.createMotivoConsulta(
-      _cedulaController.text.trim(),
+      widget.cedulaPaciente,
       _motivoController.text.trim(),
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (!mounted) return;
-
     if (result['success']) {
-      // ÉXITO: Mostramos mensaje verde
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('¡Éxito! ${result['message']}'), 
-          backgroundColor: Colors.green
-        ),
-      );
-      
-      // Limpiamos campos para permitir otro registro inmediato
-      _cedulaController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message']), backgroundColor: Colors.green));
       _motivoController.clear();
-      
     } else {
-      // ERROR: Mostramos mensaje rojo
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']), 
-          backgroundColor: Colors.redAccent
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message']), backgroundColor: Colors.red));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nuevo Motivo de Consulta'),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "1. Identificación del Paciente",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Text("Paciente: ${widget.cedulaPaciente}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _motivoController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Motivo de Consulta',
+                border: OutlineInputBorder(),
+                filled: true,
               ),
-              const SizedBox(height: 15),
-
-              // --- CAMPO DE CÉDULA (EDITABLE) ---
-              TextFormField(
-                controller: _cedulaController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Cédula del Paciente *',
-                  hintText: 'Ingrese la cédula del paciente',
-                  prefixIcon: const Icon(Icons.person_search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  filled: true,
-                  
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La cédula es obligatoria.';
-                  }
-                  if (value.length < 5) {
-                    return 'Ingrese una cédula válida.';
-                  }
-                  return null;
-                },
+              validator: (v) => v!.isEmpty ? 'Requerido' : null,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _guardarMotivo,
+                icon: const Icon(Icons.save),
+                label: Text(_isLoading ? "Guardando..." : "Registrar Motivo"),
               ),
-              
-              const SizedBox(height: 30),
-
-              const Text(
-                "2. Detalle de la Emergencia",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 15),
-
-              // --- CAMPO DE MOTIVO ---
-              TextFormField(
-                controller: _motivoController,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  labelText: 'Motivo de Consulta *',
-                  alignLabelWithHint: true,
-                  hintText: 'Describa síntomas, dolor, tiempo, etc.',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  filled: true,
-                  
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'El motivo es obligatorio.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 30),
-
-              // --- BOTÓN GUARDAR ---
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _guardarMotivo,
-                  icon: _isLoading 
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
-                      : const Icon(Icons.save, size: 28),
-                  label: Text(
-                    _isLoading ? 'Guardando...' : 'Registrar Motivo', 
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[800],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            )
+          ],
         ),
       ),
     );

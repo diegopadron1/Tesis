@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; 
-import '../../../models/patient_registration.dart';
-import '../../../services/patient_service.dart';
-
-
-// Es probable que necesites agregar 'intl' a tu pubspec.yaml
-// dependencies:
-//   intl: ^0.18.1
+import '../../models/patient_model.dart'; 
+import '../../services/patient_service.dart';
+import 'resident_home_screen.dart';
 
 class RegisterPatientScreen extends StatefulWidget {
-  const RegisterPatientScreen({super.key});
+  // Definimos el parámetro para recibir la cédula desde la búsqueda
+  final String? cedulaPrevia;
+
+  const RegisterPatientScreen({super.key, this.cedulaPrevia});
 
   @override
   State<RegisterPatientScreen> createState() => _RegisterPatientScreenState();
@@ -20,7 +19,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
   final PatientService _patientService = PatientService();
   bool _isLoading = false;
 
-  // --- Controladores de Datos del Paciente ---
+  // --- CONTROLADORES DEL PACIENTE ---
   final _cedulaController = TextEditingController();
   final _nombreController = TextEditingController();
   final _apellidoController = TextEditingController();
@@ -31,15 +30,25 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
   final _estadoCivilController = TextEditingController();
   final _religionController = TextEditingController();
 
-  // --- Controladores de Contacto de Emergencia ---
+  // --- CONTROLADORES DEL CONTACTO DE EMERGENCIA ---
   final _contactoNombreController = TextEditingController();
   final _contactoApellidoController = TextEditingController();
   final _contactoCedulaController = TextEditingController();
   final _contactoParentescoController = TextEditingController();
+  final _contactoTelefonoController = TextEditingController(); // NUEVO: Controlador para teléfono del contacto
 
+  @override
+  void initState() {
+    super.initState();
+    // Si recibimos la cédula, la escribimos automáticamente
+    if (widget.cedulaPrevia != null) {
+      _cedulaController.text = widget.cedulaPrevia!;
+    }
+  }
 
   @override
   void dispose() {
+    // Limpieza de controladores
     _cedulaController.dispose();
     _nombreController.dispose();
     _apellidoController.dispose();
@@ -49,70 +58,76 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
     _direccionActualController.dispose();
     _estadoCivilController.dispose();
     _religionController.dispose();
-
+    
     _contactoNombreController.dispose();
     _contactoApellidoController.dispose();
     _contactoCedulaController.dispose();
     _contactoParentescoController.dispose();
+    _contactoTelefonoController.dispose(); // NUEVO: Dispose
     super.dispose();
   }
 
-  // Selector de Fecha de Nacimiento
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().subtract(const Duration(days: 365 * 20)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      locale: const Locale('es', 'ES'),
     );
     if (picked != null) {
-      // Formato YYYY-MM-DD
       _fechaNacimientoController.text = DateFormat('yyyy-MM-dd').format(picked); 
     }
   }
 
-  // ----------------------------------------------------------------------
-  // Envío del Formulario
-  // ----------------------------------------------------------------------
-  void _submitForm() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
+  int _calcularEdad(String fecha) {
+    try {
+      final nac = DateTime.parse(fecha);
+      final hoy = DateTime.now();
+      int edad = hoy.year - nac.year;
+      if (hoy.month < nac.month || (hoy.month == nac.month && hoy.day < nac.day)) {
+        edad--;
+      }
+      return edad;
+    } catch (e) {
+      return 0;
     }
+  }
 
-    setState(() {
-      _isLoading = true;
-    });
+  void _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    // 1. Crear objetos PatientData y ContactoEmergencia
-    final patientData = PatientData(
-      cedula: _cedulaController.text,
-      nombre: _nombreController.text,
-      apellido: _apellidoController.text,
-      telefono: _telefonoController.text,
+    setState(() => _isLoading = true);
+
+    // Creamos el objeto Paciente usando el modelo nuevo
+    final patientData = Paciente(
+      cedula: _cedulaController.text.trim(),
+      nombre: _nombreController.text.trim(),
+      apellido: _apellidoController.text.trim(),
+      telefono: _telefonoController.text.trim(),
       fechaNacimiento: _fechaNacimientoController.text,
-      lugarNacimiento: _lugarNacimientoController.text,
-      direccionActual: _direccionActualController.text,
-      estadoCivil: _estadoCivilController.text.isEmpty ? null : _estadoCivilController.text, // Opcional
-      religion: _religionController.text.isEmpty ? null : _religionController.text, // Opcional
+      lugarNacimiento: _lugarNacimientoController.text.trim(),
+      direccionActual: _direccionActualController.text.trim(),
+      estadoCivil: _estadoCivilController.text.isEmpty ? null : _estadoCivilController.text,
+      religion: _religionController.text.isEmpty ? null : _religionController.text,
     );
 
+    // Creamos el objeto ContactoEmergencia
     final contactData = ContactoEmergencia(
-      nombre: _contactoNombreController.text,
-      apellido: _contactoApellidoController.text,
-      cedulaContacto: _contactoCedulaController.text.isEmpty ? null : _contactoCedulaController.text, // Opcional
-      parentesco: _contactoParentescoController.text,
+      nombre: _contactoNombreController.text.trim(),
+      apellido: _contactoApellidoController.text.trim(),
+      cedulaContacto: _contactoCedulaController.text.isEmpty ? null : _contactoCedulaController.text,
+      parentesco: _contactoParentescoController.text.trim(),
+      telefono: _contactoTelefonoController.text.trim(), // NUEVO: Enviamos el teléfono al modelo
     );
 
-    // 2. Crear el Payload completo
     final payload = PatientRegistrationPayload(
       paciente: patientData,
       contactoEmergencia: contactData,
     );
 
-    // 3. Enviar a la API
     final result = await _patientService.registerPatient(payload);
 
-    // Mostrar el resultado de la operación
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -122,39 +137,28 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
         ),
       );
 
-      
-      
-      // Limpiar el formulario si fue exitoso
-      if (result['success']) {
-        _clearForm();
-      }
+      setState(() => _isLoading = false);
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (result['success']) {
+        // Redirigir al Home del Residente con los datos
+        final newPatientMap = {
+          'cedula': _cedulaController.text,
+          'nombre': _nombreController.text,
+          'apellido': _apellidoController.text,
+          'nombre_apellido': "${_nombreController.text} ${_apellidoController.text}",
+          'edad': _calcularEdad(_fechaNacimientoController.text),
+          'fecha_nacimiento': _fechaNacimientoController.text
+        };
+
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(
+            builder: (context) => ResidentHomeScreen(pacienteData: newPatientMap)
+          )
+        );
+      }
     } 
   }
-
-  void _clearForm() {
-    _formKey.currentState?.reset();
-    _cedulaController.clear();
-    _nombreController.clear();
-    _apellidoController.clear();
-    _telefonoController.clear();
-    _fechaNacimientoController.clear();
-    _lugarNacimientoController.clear();
-    _direccionActualController.clear();
-    _estadoCivilController.clear();
-    _religionController.clear();
-    _contactoNombreController.clear();
-    _contactoApellidoController.clear();
-    _contactoCedulaController.clear();
-    _contactoParentescoController.clear();
-  }
-
-  // ----------------------------------------------------------------------
-  // Construcción de la Interfaz de Usuario (UI)
-  // ----------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -171,8 +175,19 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // --- SECCIÓN 1: DATOS DEL PACIENTE ---
-              _buildSectionTitle('1. Datos Personales del Paciente'),
+              if (widget.cedulaPrevia != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(10),
+                  color: Colors.orange[100],
+                  child: Text(
+                    "La cédula ${widget.cedulaPrevia} no estaba registrada. Por favor complete los datos.", 
+                    style: TextStyle(color: Colors.orange[900])
+                  ),
+                ),
+
+              // --- SECCIÓN 1: DATOS PERSONALES ---
+              _buildSectionTitle('1. Datos Personales'),
               const SizedBox(height: 15),
 
               _buildTextFormField(
@@ -180,73 +195,71 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
                 labelText: 'Cédula de Identidad',
                 keyboardType: TextInputType.number,
                 isRequired: true,
-                validator: (value) => value!.length < 5 || value.length > 15 ? 'Cédula debe tener 5-15 dígitos.' : null,
+                validator: (value) => value!.length < 4 || value.length > 15 ? 'Cédula inválida' : null,
               ),
               const SizedBox(height: 15),
 
-              Row(
-                children: [
-                  Expanded(child: _buildTextFormField(controller: _nombreController, labelText: 'Nombre(s)', isRequired: true)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _buildTextFormField(controller: _apellidoController, labelText: 'Apellido(s)', isRequired: true)),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildTextFormField(controller: _nombreController, labelText: 'Nombre(s)', isRequired: true)),
+                const SizedBox(width: 10),
+                Expanded(child: _buildTextFormField(controller: _apellidoController, labelText: 'Apellido(s)', isRequired: true)),
+              ]),
               const SizedBox(height: 15),
 
               _buildTextFormField(
                 controller: _telefonoController,
-                labelText: 'Teléfono',
+                labelText: 'Teléfono Paciente',
                 keyboardType: TextInputType.phone,
                 isRequired: true,
-                validator: (value) => value!.length < 10 || value.length > 15 ? 'Teléfono debe tener 10-15 dígitos.' : null,
               ),
               const SizedBox(height: 15),
 
-              // Campo Fecha de Nacimiento (con selector)
               TextFormField(
                 controller: _fechaNacimientoController,
                 readOnly: true,
                 decoration: InputDecoration(
-                  labelText: 'Fecha de Nacimiento (YYYY-MM-DD) *',
+                  labelText: 'Fecha de Nacimiento *',
                   suffixIcon: const Icon(Icons.calendar_today),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
                 ),
-                validator: (value) => value!.isEmpty ? 'Seleccione la fecha de nacimiento' : null,
+                validator: (value) => value!.isEmpty ? 'Seleccione fecha' : null,
                 onTap: () => _selectDate(context),
               ),
               const SizedBox(height: 15),
               
               _buildTextFormField(controller: _lugarNacimientoController, labelText: 'Lugar de Nacimiento', isRequired: true),
               const SizedBox(height: 15),
-              
               _buildTextFormField(controller: _direccionActualController, labelText: 'Dirección Actual', isRequired: true, maxLines: 2),
               const SizedBox(height: 15),
 
-              // Campos Opcionales
-              Row(
-                children: [
-                  Expanded(child: _buildTextFormField(controller: _estadoCivilController, labelText: 'Estado Civil (Opcional)')),
-                  const SizedBox(width: 10),
-                  Expanded(child: _buildTextFormField(controller: _religionController, labelText: 'Religión (Opcional)')),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildTextFormField(controller: _estadoCivilController, labelText: 'Estado Civil')),
+                const SizedBox(width: 10),
+                Expanded(child: _buildTextFormField(controller: _religionController, labelText: 'Religión')),
+              ]),
               const SizedBox(height: 40),
-
 
               // --- SECCIÓN 2: CONTACTO DE EMERGENCIA ---
               _buildSectionTitle('2. Contacto de Emergencia'),
               const SizedBox(height: 15),
 
-              Row(
-                children: [
-                  Expanded(child: _buildTextFormField(controller: _contactoNombreController, labelText: 'Nombre Contacto', isRequired: true)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _buildTextFormField(controller: _contactoApellidoController, labelText: 'Apellido Contacto', isRequired: true)),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildTextFormField(controller: _contactoNombreController, labelText: 'Nombre Contacto', isRequired: true)),
+                const SizedBox(width: 10),
+                Expanded(child: _buildTextFormField(controller: _contactoApellidoController, labelText: 'Apellido Contacto', isRequired: true)),
+              ]),
               const SizedBox(height: 15),
 
               _buildTextFormField(controller: _contactoParentescoController, labelText: 'Parentesco', isRequired: true),
+              const SizedBox(height: 15),
+
+              // NUEVO CAMPO: TELÉFONO DEL CONTACTO
+              _buildTextFormField(
+                controller: _contactoTelefonoController, 
+                labelText: 'Teléfono Contacto', 
+                keyboardType: TextInputType.phone,
+                isRequired: true
+              ),
               const SizedBox(height: 15),
 
               _buildTextFormField(
@@ -256,24 +269,15 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
               ),
               const SizedBox(height: 30),
 
-              // Botón de Envío
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _submitForm,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.0, color: Colors.white),
-                      )
-                    : const Icon(Icons.person_add, size: 28),
-                label: Text(_isLoading ? 'Registrando...' : 'Registrar y Continuar Triaje', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white)) : const Icon(Icons.save_as, size: 28),
+                label: Text(_isLoading ? 'Registrando...' : 'Registrar y Continuar', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[600],
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  elevation: 5,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -284,22 +288,10 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
     );
   }
 
-  // Helper para el título de las secciones
   Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5.0, top: 10.0),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 20, 
-          fontWeight: FontWeight.w700, 
-          color: Colors.blue[800],
-        ),
-      ),
-    );
+    return Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.blue[800]));
   }
 
-  // Helper para generar TextFormFields con estilo
   Widget _buildTextFormField({
     required TextEditingController controller,
     required String labelText,
@@ -314,22 +306,11 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: isRequired ? '$labelText *' : labelText,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
-          borderSide: BorderSide(color: Colors.grey[400]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
-          borderSide: BorderSide(color: Colors.blue[800]!, width: 2),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+        filled: true,
       ),
       validator: (value) {
-        if (isRequired && (value == null || value.isEmpty)) {
-          return 'Este campo es obligatorio.';
-        }
+        if (isRequired && (value == null || value.isEmpty)) return 'Obligatorio.';
         return validator?.call(value);
       },
     );
