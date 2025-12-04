@@ -1,5 +1,3 @@
-// controllers/patientController.js
-
 const { check, validationResult } = require('express-validator');
 const db = require('../models'); 
 const sequelize = db.sequelize; 
@@ -40,8 +38,13 @@ exports.validatePatientRegistration = [
     // --- Validación de Contacto de Emergencia ---
     check('contactoEmergencia.nombre', 'El nombre del contacto es obligatorio.').notEmpty(),
     check('contactoEmergencia.apellido', 'El apellido del contacto es obligatorio.').notEmpty(),
-    check('contactoEmergencia.cedula_contacto', 'La cédula del contacto debe ser válida.').optional().isLength(),
-    check('contactoEmergencia.parentesco', 'El parentesco es obligatorio.').notEmpty(), 
+    check('contactoEmergencia.cedula_contacto', 'La cédula del contacto debe ser válida.').optional().isLength({ min: 5 }),
+    check('contactoEmergencia.parentesco', 'El parentesco es obligatorio.').notEmpty(),
+    
+    // --- NUEVA VALIDACIÓN AGREGADA ---
+    check('contactoEmergencia.telefono', 'El teléfono del contacto es obligatorio.')
+        .notEmpty().withMessage('El teléfono del contacto es requerido.')
+        .isNumeric().withMessage('El teléfono del contacto solo debe contener números.')
 ];
 
 
@@ -66,7 +69,7 @@ exports.registerPatient = async (req, res) => {
         const nombreCompletoPaciente = `${paciente.nombre} ${paciente.apellido}`;
         const nombreCompletoContacto = `${contactoEmergencia.nombre} ${contactoEmergencia.apellido}`;
 
-        // 2. Verificar si el Paciente ya existe (USANDO COMILLAS DOBLES)
+        // 2. Verificar si el Paciente ya existe
         const existingPatient = await sequelize.query(
             'SELECT cedula FROM "Paciente" WHERE cedula = :cedula',
             {
@@ -81,7 +84,7 @@ exports.registerPatient = async (req, res) => {
             return res.status(409).json({ success: false, message: `El paciente con cédula ${paciente.cedula} ya está registrado.` });
         }
 
-        // 3. Insertar Paciente (Usando comillas dobles para tablas y columnas capitalizadas)
+        // 3. Insertar Paciente
         const patientQuery = `
             INSERT INTO "Paciente" (
                 cedula, nombre_apellido, edad, telefono, fecha_nacimiento, 
@@ -103,8 +106,8 @@ exports.registerPatient = async (req, res) => {
                 fecha_nacimiento: paciente.fecha_nacimiento,
                 lugar_nacimiento: paciente.lugar_nacimiento || null,
                 direccion_actual: paciente.direccion_actual || null,
-                estado_civil: paciente.Estado_civil || null,
-                religion: paciente.Religion || null         
+                estado_civil: paciente.estadoCivil || paciente.Estado_civil || null,
+                religion: paciente.religion || paciente.Religion || null         
             },
             type: QueryTypes.INSERT,
             transaction,
@@ -113,10 +116,10 @@ exports.registerPatient = async (req, res) => {
         // 4. Insertar Contacto de Emergencia
         const contactQuery = `
             INSERT INTO "ContactoEmergencia" (
-                cedula_paciente, nombre_apellido, cedula_contacto, parentesco
+                cedula_paciente, nombre_apellido, cedula_contacto, parentesco, telefono
             )
             VALUES (
-                :cedula_paciente, :nombre_apellido, :cedula_contacto, :parentesco
+                :cedula_paciente, :nombre_apellido, :cedula_contacto, :parentesco, :telefono
             )
             RETURNING id_contacto;
         `;
@@ -126,7 +129,8 @@ exports.registerPatient = async (req, res) => {
                 cedula_paciente: paciente.cedula,
                 nombre_apellido: nombreCompletoContacto,
                 cedula_contacto: contactoEmergencia.cedula_contacto || null,
-                parentesco: contactoEmergencia.parentesco
+                parentesco: contactoEmergencia.parentesco,
+                telefono: contactoEmergencia.telefono
             },
             type: QueryTypes.INSERT,
             transaction,
@@ -148,7 +152,7 @@ exports.registerPatient = async (req, res) => {
         
         const errorMessage = error.name === 'SequelizeUniqueConstraintError' 
             ? 'Error de duplicidad de datos.' 
-            : 'Error interno del servidor al procesar el registro (Revisar logs para restricciones de DB).';
+            : 'Error interno del servidor al procesar el registro.';
 
         res.status(500).json({ success: false, message: errorMessage });
     }

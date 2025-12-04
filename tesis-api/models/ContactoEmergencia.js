@@ -1,4 +1,3 @@
-// models/Contacto_Emergencia.js
 module.exports = (sequelize, DataTypes) => {
     const ContactoEmergencia = sequelize.define('ContactoEmergencia', {
         id_contacto: {
@@ -7,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
             allowNull: false
         },
-        cedula_paciente: { // Nueva clave foránea
+        cedula_paciente: { // Clave foránea
             type: DataTypes.STRING(15),
             allowNull: false,
             references: {
@@ -15,14 +14,22 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'cedula',
             }
         },
-        nombre_apellido: { // Campo único
+        nombre_apellido: { 
             type: DataTypes.STRING(200),
             allowNull: false
         },
-        cedula_contacto: { // Nueva columna
+        cedula_contacto: { 
             type: DataTypes.STRING(15),
-            allowNull: true // Asumo que esta cédula puede ser opcional
+            allowNull: true
         },
+        // --- CAMBIO IMPORTANTE AQUÍ ---
+        telefono: {
+            type: DataTypes.STRING(20), 
+            allowNull: false, 
+            // Este valor por defecto rellena los registros viejos para evitar el error fatal
+            defaultValue: 'No registrado' 
+        },
+        // ------------------------------
         parentesco: {
             type: DataTypes.STRING(50),
             allowNull: false
