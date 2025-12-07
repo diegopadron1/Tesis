@@ -1,7 +1,9 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'home_screen.dart'; // Crearemos esta pantalla más tarde
+import 'home_screen.dart';
+// IMPORTANTE: Importamos la pantalla de recuperación
+import 'auth/forgot_password_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,13 +68,13 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         title: const Text('Emergencia Razetti - Login'),
         backgroundColor: const Color.fromARGB(255, 62, 2, 129),
+        foregroundColor: Colors.white, // Texto blanco en AppBar
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(30),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            // 
             const Text(
               'Sistema de Emergencia',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -97,7 +99,30 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               obscureText: true,
             ),
-            const SizedBox(height: 30),
+            
+            // --- NUEVO: BOTÓN DE RECUPERACIÓN DE CONTRASEÑA ---
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  // Navegar a la pantalla de recuperación
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => const ForgotPasswordScreen())
+                  );
+                },
+                child: const Text(
+                  '¿Olvidaste tu contraseña?',
+                  style: TextStyle(
+                    color: Color.fromARGB(255, 62, 2, 129), 
+                    fontWeight: FontWeight.bold
+                  ),
+                ),
+              ),
+            ),
+            // --------------------------------------------------
+
+            const SizedBox(height: 20),
             _isLoading
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
@@ -105,8 +130,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
                       backgroundColor: const Color.fromARGB(255, 62, 2, 129),
+                      foregroundColor: Colors.white, // Texto blanco
                     ),
-                    child: const Text('INICIAR SESIÓN', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    child: const Text('INICIAR SESIÓN', style: TextStyle(fontSize: 16)),
                   ),
           ],
         ),
