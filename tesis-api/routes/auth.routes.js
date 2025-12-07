@@ -13,4 +13,14 @@ module.exports = function(app) {
 
     // Endpoint principal de login
     app.post("/api/auth/signin", controller.signin);
+
+    // --- NUEVAS RUTAS DE RECUPERACIÓN ---
+    
+    // 1. Solicitar código por correo
+    // Body esperado: { "email": "usuario@correo.com" }
+    app.post("/api/auth/forgot-password", controller.forgotPassword);
+
+    // 2. Cambiar contraseña usando el código
+    // Body esperado: { "token": "CODIGO_RECIBIDO", "newPassword": "NUEVA_CLAVE" }
+    app.post("/api/auth/reset-password", controller.resetPassword);
 };

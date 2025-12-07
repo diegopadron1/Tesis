@@ -37,6 +37,14 @@ module.exports = (sequelize) => {
         model: 'Rol', // Referencia el nombre de la tabla
         key: 'id_rol'
       }
+    },
+    resetPasswordToken: {
+    type: DataTypes.STRING,
+    allowNull: true
+    },
+    resetPasswordExpire: {
+    type: DataTypes.DATE,
+    allowNull: true
     }
     // Sequelize agregará automáticamente 'creado_en' si usamos timestamps
   }, {
