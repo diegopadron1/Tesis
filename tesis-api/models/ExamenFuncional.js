@@ -13,6 +13,14 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'cedula'
             }
         },
+        id_carpeta: {
+            type: DataTypes.INTEGER,
+            allowNull: false, // Ahora es obligatorio que pertenezca a una carpeta
+            references: {
+                model: 'carpetas', // Nombre de la tabla de carpetas
+                key: 'id_carpeta'
+            }
+        },
         sistema: {
             type: DataTypes.STRING, // Ej: "Respiratorio", "Cardiovascular"
             allowNull: false
@@ -23,7 +31,7 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         tableName: 'ExamenFuncional',
-        timestamps: false
+        timestamps: true
     });
 
     return ExamenFuncional;

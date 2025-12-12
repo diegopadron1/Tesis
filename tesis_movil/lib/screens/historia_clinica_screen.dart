@@ -43,7 +43,16 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
 
   void _guardarSeccion(String seccion, Map<String, dynamic> datos) async {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Guardando...")));
-    final res = await _service.guardarSeccion(_cedulaSearchCtrl.text, seccion, datos);
+    
+    // Agregamos info del médico para la Carpeta (Simulación)
+    // En una app real, esto vendría de tu AuthProvider o sesión
+    final datosConFirma = {
+      ...datos,
+      'id_usuario': '123456', // Cédula del médico logueado
+      'atendido_por': 'Dr. Especialista' // Nombre para mostrar
+    };
+
+    final res = await _service.guardarSeccion(_cedulaSearchCtrl.text, seccion, datosConFirma);
     
     if (!mounted) return;
 
@@ -56,6 +65,34 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
     if (res['success']) {
       _buscarPaciente(); 
     }
+  }
+
+  // --- HELPER CORREGIDO ---
+  // Toma el PRIMER elemento porque el backend los manda ordenados (Nuevos primero)
+  Map<String, dynamic> _extraerDataReciente(List<String> keysPosibles) {
+    if (_pacienteData == null) return {};
+
+    dynamic rawData;
+    for (var key in keysPosibles) {
+      if (_pacienteData!.containsKey(key) && _pacienteData![key] != null) {
+        rawData = _pacienteData![key];
+        break;
+      }
+    }
+
+    if (rawData == null) return {};
+
+    if (rawData is List) {
+      if (rawData.isEmpty) return {};
+      // CORRECCIÓN CRÍTICA: Usamos .first porque el backend manda [MasNuevo, Viejo, MasViejo]
+      return Map<String, dynamic>.from(rawData.first);
+    }
+
+    if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+
+    return {};
   }
 
   @override
@@ -118,11 +155,11 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: (d) => _guardarSeccion('datos_personales', d),
                   ),
 
-                  // CONTACTO DE EMERGENCIA (NUEVA SECCIÓN)
+                  // CONTACTO DE EMERGENCIA
                   _SeccionGenerica(
                     titulo: "Contacto de Emergencia",
                     icon: Icons.contact_phone,
-                    data: _pacienteData!['ContactoEmergencium'] ?? _pacienteData!['ContactoEmergencia'] ?? {}, 
+                    data: _extraerDataReciente(['ContactoEmergencia', 'ContactoEmergencium', 'ContactoEmergencias']), 
                     campos: const ['nombre_apellido', 'parentesco', 'cedula_contacto'],
                     seccionKey: 'contacto_emergencia', 
                     onSave: _guardarSeccion,
@@ -132,7 +169,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _SeccionGenerica(
                     titulo: "Motivo de Consulta",
                     icon: Icons.chat_bubble_outline,
-                    data: _pacienteData!['MotivoConsultum'] ?? {}, 
+                    data: _extraerDataReciente(['MotivoConsulta', 'MotivoConsultas', 'MotivoConsultum']), 
                     campos: const ['motivo_consulta'], 
                     seccionKey: 'motivo',
                     onSave: _guardarSeccion,
@@ -142,7 +179,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _SeccionGenerica(
                     titulo: "Diagnóstico",
                     icon: Icons.local_hospital,
-                    data: _pacienteData!['Diagnostico'] ?? {},
+                    data: _extraerDataReciente(['Diagnostico', 'Diagnosticos']),
                     campos: const ['descripcion', 'tipo', 'observaciones'],
                     seccionKey: 'diagnostico',
                     onSave: _guardarSeccion,
@@ -152,7 +189,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _SeccionGenerica(
                     titulo: "Examen Físico",
                     icon: Icons.accessibility_new,
-                    data: _pacienteData!['ExamenFisico'] ?? {},
+                    data: _extraerDataReciente(['ExamenFisico', 'ExamenFisicos']),
                     campos: const ['area', 'hallazgos'], 
                     seccionKey: 'fisico',
                     onSave: _guardarSeccion,
@@ -162,7 +199,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _SeccionGenerica(
                     titulo: "Examen Funcional",
                     icon: Icons.directions_walk,
-                    data: _pacienteData!['ExamenFuncional'] ?? {},
+                    data: _extraerDataReciente(['ExamenFuncional', 'ExamenFuncionals', 'ExamenFuncionales']),
                     campos: const ['sistema', 'hallazgos'], 
                     seccionKey: 'funcional',
                     onSave: _guardarSeccion,
@@ -172,7 +209,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _SeccionGenerica(
                     titulo: "Antecedentes Personales",
                     icon: Icons.history,
-                    data: _pacienteData!['AntecedentesPersonale'] ?? {}, 
+                    data: _extraerDataReciente(['AntecedentesPersonales', 'AntecedentesPersonale']), 
                     campos: const ['tipo', 'detalle'], 
                     seccionKey: 'ant_pers',
                     onSave: _guardarSeccion,
@@ -182,7 +219,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                    _SeccionGenerica(
                     titulo: "Antecedentes Familiares",
                     icon: Icons.family_restroom,
-                    data: _pacienteData!['AntecedentesFamiliare'] ?? {}, 
+                    data: _extraerDataReciente(['AntecedentesFamiliares', 'AntecedentesFamiliare']), 
                     campos: const ['tipo_familiar', 'vivo_muerto', 'edad', 'patologias'], 
                     seccionKey: 'ant_fam',
                     onSave: _guardarSeccion,
@@ -192,7 +229,7 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _SeccionGenerica(
                     titulo: "Hábitos Psicobiológicos",
                     icon: Icons.smoking_rooms,
-                    data: _pacienteData!['HabitosPsicobiologico'] ?? {}, 
+                    data: _extraerDataReciente(['HabitosPsicobiologicos', 'HabitosPsicobiologico']), 
                     campos: const ['cafe', 'tabaco', 'alcohol', 'drogas_ilicitas', 'ocupacion', 'sueño', 'vivienda'], 
                     seccionKey: 'ant_hab',
                     onSave: _guardarSeccion,
@@ -435,12 +472,11 @@ class _SeccionDatosPersonales extends StatefulWidget {
 }
 
 class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
-  // 1. Controladores para TODOS los campos del modelo Paciente
   late TextEditingController _nombreCtrl;
   late TextEditingController _telefonoCtrl;
   late TextEditingController _direccionCtrl;
-  late TextEditingController _estadoCivilCtrl; // Mayúscula según BD
-  late TextEditingController _religionCtrl;    // Mayúscula según BD
+  late TextEditingController _estadoCivilCtrl; 
+  late TextEditingController _religionCtrl;    
   late TextEditingController _fechaNacCtrl;
   late TextEditingController _lugarNacCtrl;
 
@@ -453,7 +489,6 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
   }
 
   void _initCtrls() {
-    // 2. Inicialización segura con los nombres exactos de la BD
     _nombreCtrl = TextEditingController(text: widget.data['nombre_apellido']?.toString() ?? '');
     _telefonoCtrl = TextEditingController(text: widget.data['telefono']?.toString() ?? '');
     _direccionCtrl = TextEditingController(text: widget.data['direccion_actual']?.toString() ?? '');
@@ -463,7 +498,6 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
     _lugarNacCtrl = TextEditingController(text: widget.data['lugar_nacimiento']?.toString() ?? '');
   }
 
-  // Selector de Fecha
   Future<void> _selectDate(BuildContext context) async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -537,8 +571,7 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
                     const SizedBox(height: 15),
                     ElevatedButton.icon(
                       onPressed: () {
-                         // 3. Enviar todos los campos del modelo
-                         widget.onSave({ 
+                          widget.onSave({ 
                            'nombre_apellido': _nombreCtrl.text, 
                            'telefono': _telefonoCtrl.text,
                            'fecha_nacimiento': _fechaNacCtrl.text,
@@ -546,9 +579,9 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
                            'direccion_actual': _direccionCtrl.text,
                            'Estado_civil': _estadoCivilCtrl.text,
                            'Religion': _religionCtrl.text,
-                         });
-                         setState(() => _isEditing = false);
-                      },
+                          });
+                          setState(() => _isEditing = false);
+                       },
                       icon: const Icon(Icons.save),
                       label: const Text("Actualizar Datos"),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
@@ -573,7 +606,6 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
     );
   }
 
-  // Helpers internos para esta clase
   Widget _buildTextField(TextEditingController ctrl, String label, {bool isNumber = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -601,7 +633,6 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
   }
 }
 
-// --- WIDGET ÓRDENES MÉDICAS ---
 class _SeccionOrdenesMedicas extends StatelessWidget {
   final List<dynamic> ordenes;
   final HistoriaService service;
@@ -656,7 +687,6 @@ class _SeccionOrdenesMedicas extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         leading: const Icon(Icons.assignment, color: Colors.indigo),
         title: const Text("Órdenes Médicas", style: TextStyle(fontWeight: FontWeight.bold)),

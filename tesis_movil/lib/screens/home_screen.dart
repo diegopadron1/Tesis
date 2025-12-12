@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'admin_board_screen.dart';
-// CAMBIO 1: Importamos la pantalla de búsqueda, NO la de ResidentHomeScreen directamente aquí
 import 'resident/patient_search_screen.dart'; 
-// import 'resident/resident_home_screen.dart'; // <--- YA NO NECESITAS ESTO AQUÍ
 import 'pharmacy/farmacia_inventory_screen.dart';
 import 'nurse/nurse_home_screen.dart';
-import 'historia_clinica_screen.dart';
+import 'historia_clinica_screen.dart'; // Pantalla de EDICIÓN
+import 'consultar_historia_screen.dart'; // NUEVA: Pantalla de LECTURA
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -70,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             
-            // ... (Opciones de Admin y Farmacia igual que antes) ...
+            // --- ADMINISTRADOR ---
             if (_rol == 'Administrador')
               ListTile(
                 leading: const Icon(Icons.group_add),
@@ -81,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               
+            // --- FARMACIA ---
              if (_rol == 'Farmacia')
               ListTile(
                 leading: const Icon(Icons.local_pharmacy),
@@ -91,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
+             // --- ENFERMERÍA ---
              if (_rol != null && _rol!.toLowerCase().contains('enfermer'))
                ListTile(
                 leading: const Icon(Icons.health_and_safety),
@@ -101,30 +102,46 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
-            // CAMBIO 2: LÓGICA CORREGIDA PARA RESIDENTES
+            // --- MÉDICOS (RESIDENTES Y ESPECIALISTAS) ---
             if (_rol == 'Residente' || _rol == 'Especialista') ...[
+               
+               // 1. GESTIÓN DE PACIENTES (Solo Residentes)
                if (_rol == 'Residente')
                 ListTile(
-                  leading: const Icon(Icons.person_search), // Icono más acorde (Buscar paciente)
-                  title: const Text('Gestión de Pacientes'), // Nombre más claro
+                  leading: const Icon(Icons.person_search), 
+                  title: const Text('Gestión de Pacientes'), 
                   subtitle: const Text('Registrar, Diagnosticar, Exámenes'),
                   onTap: () {
                    Navigator.pop(context);
-                   // AQUÍ ESTABA EL ERROR: Ahora vamos al BUSCADOR, no al HOME directo
                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientSearchScreen()));
-                 },
-               ),
+                  },
+                ),
 
                const Divider(), 
                
+               // 2. ACTUALIZAR HISTORIA (Para ambos o solo residentes, según tu flujo)
+               // Le cambié el nombre para que no se confunda con la nueva opción
                ListTile(
-                leading: const Icon(Icons.history_edu, color: Colors.indigo),
-                title: const Text('Historia Clínica (Solo Lectura)'),
+                leading: const Icon(Icons.edit_note, color: Colors.indigo),
+                title: const Text('Actualizar Historia Clínica'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoriaClinicaScreen()));
                 },
               ),
+
+              // 3. CONSULTAR HISTORIAL (NUEVO - SOLO ESPECIALISTAS)
+              if (_rol == 'Especialista')
+                ListTile(
+                  leading: const Icon(Icons.menu_book, color: Colors.teal), // Icono distinto (libro/lectura)
+                  title: const Text('Consultar Historial'),
+                  subtitle: const Text('Modo Lectura'),
+                  tileColor: Colors.teal.withValues(alpha: 0.05), // Un fondo sutil para destacarlo
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultarHistoriaScreen()));
+                  },
+                ),
             ],
             
             const Divider(),
@@ -143,6 +160,11 @@ class _HomeScreenState extends State<HomeScreen> {
              Icon(Icons.local_hospital, size: 100, color: Colors.deepPurple.shade200),
              const SizedBox(height: 20),
              Text('¡Hola, ${_rol ?? 'Usuario'}!', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+             if (_rol == 'Especialista')
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text("Accede al menú lateral para consultar historiales.", style: TextStyle(color: Colors.grey)),
+              )
           ],
         ),
       ),

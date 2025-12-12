@@ -4,9 +4,12 @@ const OrdenesMedicas = db.OrdenesMedicas;
 const MotivoConsulta = db.MotivoConsulta;
 const ExamenFisico = db.ExamenFisico;
 const AntecedentesPersonales = db.AntecedentesPersonales;
+const Carpeta = db.Carpeta; // Importante: Traemos el modelo Carpeta
+const { Op } = require("sequelize"); // Importante: Para rangos de fecha
 
 // Crear Diagnóstico y Órdenes Médicas
 exports.createDiagnostico = async (req, res) => {
+    console.log("Intentando crear Diagnóstico...");
     const { 
         cedula_paciente, 
         descripcion, 
@@ -17,7 +20,10 @@ exports.createDiagnostico = async (req, res) => {
         tratamientos_sugeridos,
         requerimiento_medicamentos,
         examenes_complementarios,
-        conducta_seguir
+        conducta_seguir,
+        // Datos del médico (Opcional)
+        id_usuario,
+        atendido_por
     } = req.body;
 
     if (!cedula_paciente || !descripcion || !tipo) {
@@ -26,57 +32,83 @@ exports.createDiagnostico = async (req, res) => {
 
     try {
         // --- 1. VALIDACIÓN DE PRERREQUISITOS CLÍNICOS (BLOQUEOS) ---
+        // Verificamos si el paciente tiene historial previo
         
-        // A. Motivo
         const tieneMotivo = await MotivoConsulta.findOne({ where: { cedula_paciente } });
         if (!tieneMotivo) {
             return res.status(403).send({ message: "BLOQUEO: Paciente sin Motivo de Consulta. Debe registrarlo primero." });
         }
 
-        // B. Examen Físico
         const tieneExamen = await ExamenFisico.findOne({ where: { cedula_paciente } });
         if (!tieneExamen) {
             return res.status(403).send({ message: "BLOQUEO: Paciente sin Examen Físico. Debe realizarlo primero." });
         }
 
-        // C. Antecedentes
         const tieneAntecedentes = await AntecedentesPersonales.findOne({ where: { cedula_paciente } });
         if (!tieneAntecedentes) {
             return res.status(403).send({ message: "BLOQUEO: Paciente sin Antecedentes. Debe interrogarlos primero." });
         }
 
-        // --- 2. CREAR DIAGNÓSTICO (Tabla A) ---
+        // --- 2. LÓGICA DE CARPETA AUTOMÁTICA ---
+        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
+        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
+
+        // Buscar carpeta de hoy
+        let carpeta = await Carpeta.findOne({
+            where: {
+                cedula_paciente: cedula_paciente,
+                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+            }
+        });
+
+        // Si no existe, crearla
+        if (!carpeta) {
+            console.log(`📂 Creando carpeta automática (Diagnóstico) para ${cedula_paciente}...`);
+            carpeta = await Carpeta.create({
+                cedula_paciente: cedula_paciente,
+                fecha_creacion: new Date(),
+                estatus: 'ABIERTA',
+                id_usuario: id_usuario || null,
+                atendido_por: atendido_por || null
+            });
+        }
+
+        // --- 3. CREAR DIAGNÓSTICO (Vinculado a Carpeta) ---
         const nuevoDiagnostico = await Diagnostico.create({
             cedula_paciente,
             descripcion,
             tipo,
-            observaciones
+            observaciones,
+            id_carpeta: carpeta.id_carpeta // <--- VINCULACIÓN OBLIGATORIA
         });
 
-        // --- 3. CREAR ÓRDENES MÉDICAS (Tabla B - Independiente pero vinculada al Paciente) ---
+        // --- 4. CREAR ÓRDENES MÉDICAS (Vinculadas a Carpeta) ---
         let ordenCreada = null;
-        // Solo creamos la orden si el médico escribió algo en esos campos
+        
+        // Solo creamos la orden si el médico escribió algo relevante
         if (indicaciones_inmediatas || tratamientos_sugeridos || requerimiento_medicamentos || examenes_complementarios || conducta_seguir) {
             ordenCreada = await OrdenesMedicas.create({
-                cedula_paciente, // Usamos la cédula directamente
+                cedula_paciente, 
                 indicaciones_inmediatas,
                 tratamientos_sugeridos,
                 requerimiento_medicamentos,
                 examenes_complementarios,
                 conducta_seguir,
-                estatus: 'PENDIENTE' // Nace pendiente para enfermería
+                estatus: 'PENDIENTE',
+                id_carpeta: carpeta.id_carpeta // <--- VINCULACIÓN OBLIGATORIA TAMBIÉN AQUÍ
             });
         }
 
         res.status(201).send({ 
             message: 'Diagnóstico y Órdenes registradas correctamente.',
             diagnostico: nuevoDiagnostico,
-            orden: ordenCreada
+            orden: ordenCreada,
+            id_carpeta: carpeta.id_carpeta
         });
 
     } catch (error) {
         console.error("Error en createDiagnostico:", error);
-        res.status(500).send({ message: 'Error interno al procesar el diagnóstico.' });
+        res.status(500).send({ message: error.message || 'Error interno al procesar el diagnóstico.' });
     }
 };
 
@@ -84,12 +116,10 @@ exports.createDiagnostico = async (req, res) => {
 exports.getDiagnosticosByPaciente = async (req, res) => {
     try {
         const { cedula } = req.params;
-        // Como ya no están vinculados por ID, traemos los diagnósticos solos.
-        // Si quisieras traer las órdenes, tendrías que hacer otra consulta o un include basado en la cédula (si Sequelize lo permite así, que es complejo).
-        // Por ahora, devolvemos solo diagnósticos aquí.
+        
         const diagnosticos = await Diagnostico.findAll({ 
             where: { cedula_paciente: cedula },
-            order: [['fecha_diagnostico', 'DESC']]
+            order: [['createdAt', 'DESC']] // Ordenar por fecha de creación real
         });
         res.status(200).send(diagnosticos);
     } catch (error) {

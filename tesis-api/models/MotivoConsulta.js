@@ -18,13 +18,21 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'cedula' // La clave primaria de la tabla Paciente
             }
         },
+        id_carpeta: {
+            type: DataTypes.INTEGER,
+            allowNull: false, // Ahora es obligatorio que pertenezca a una carpeta
+            references: {
+                model: 'carpetas', // Nombre de la tabla de carpetas
+                key: 'id_carpeta'
+            }
+        },
         motivo_consulta: {
             type: DataTypes.TEXT,
             allowNull: false
         }
     }, {
         tableName: 'MotivoConsulta',
-        timestamps: false
+        timestamps: true
     });
 
     // 2. Definición de la Asociación (Opcional, pero siguiendo la lógica anterior)

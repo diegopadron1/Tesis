@@ -13,6 +13,14 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'cedula'
             }
         },
+        id_carpeta: {
+            type: DataTypes.INTEGER,
+            allowNull: false, // Ahora es obligatorio que pertenezca a una carpeta
+            references: {
+                model: 'carpetas', // Nombre de la tabla de carpetas
+                key: 'id_carpeta'
+            }
+        },
         // --- Campos del Médico ---
         indicaciones_inmediatas: { type: DataTypes.TEXT },
         tratamientos_sugeridos: { type: DataTypes.TEXT },
@@ -36,7 +44,7 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         tableName: 'OrdenesMedicas',
-        timestamps: false
+        timestamps: true
     });
 
     return OrdenesMedicas;
