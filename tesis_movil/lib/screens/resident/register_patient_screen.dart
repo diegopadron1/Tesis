@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Importante para validar solo números
 import 'package:intl/intl.dart'; 
 import '../../models/patient_model.dart'; 
 import '../../services/patient_service.dart';
+// Asegúrate de que este archivo exista en la misma carpeta
 import 'resident_home_screen.dart';
 
 class RegisterPatientScreen extends StatefulWidget {
-  // Definimos el parámetro para recibir la cédula desde la búsqueda
   final String? cedulaPrevia;
 
   const RegisterPatientScreen({super.key, this.cedulaPrevia});
@@ -35,12 +36,12 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
   final _contactoApellidoController = TextEditingController();
   final _contactoCedulaController = TextEditingController();
   final _contactoParentescoController = TextEditingController();
-  final _contactoTelefonoController = TextEditingController(); // NUEVO: Controlador para teléfono del contacto
+  final _contactoTelefonoController = TextEditingController(); 
 
   @override
   void initState() {
     super.initState();
-    // Si recibimos la cédula, la escribimos automáticamente
+    // Si recibimos la cédula desde la búsqueda, la pre-llenamos
     if (widget.cedulaPrevia != null) {
       _cedulaController.text = widget.cedulaPrevia!;
     }
@@ -48,7 +49,6 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
 
   @override
   void dispose() {
-    // Limpieza de controladores
     _cedulaController.dispose();
     _nombreController.dispose();
     _apellidoController.dispose();
@@ -63,7 +63,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
     _contactoApellidoController.dispose();
     _contactoCedulaController.dispose();
     _contactoParentescoController.dispose();
-    _contactoTelefonoController.dispose(); // NUEVO: Dispose
+    _contactoTelefonoController.dispose(); 
     super.dispose();
   }
 
@@ -99,7 +99,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
 
     setState(() => _isLoading = true);
 
-    // Creamos el objeto Paciente usando el modelo nuevo
+    // Creamos el objeto Paciente
     final patientData = Paciente(
       cedula: _cedulaController.text.trim(),
       nombre: _nombreController.text.trim(),
@@ -118,7 +118,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
       apellido: _contactoApellidoController.text.trim(),
       cedulaContacto: _contactoCedulaController.text.isEmpty ? null : _contactoCedulaController.text,
       parentesco: _contactoParentescoController.text.trim(),
-      telefono: _contactoTelefonoController.text.trim(), // NUEVO: Enviamos el teléfono al modelo
+      telefono: _contactoTelefonoController.text.trim(),
     );
 
     final payload = PatientRegistrationPayload(
@@ -140,7 +140,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
       setState(() => _isLoading = false);
 
       if (result['success']) {
-        // Redirigir al Home del Residente con los datos
+        // Datos mínimos para el Home
         final newPatientMap = {
           'cedula': _cedulaController.text,
           'nombre': _nombreController.text,
@@ -150,6 +150,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
           'fecha_nacimiento': _fechaNacimientoController.text
         };
 
+        // Navegamos al Home del Residente pasando los datos del nuevo paciente
         Navigator.pushReplacement(
           context, 
           MaterialPageRoute(
@@ -195,6 +196,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
                 labelText: 'Cédula de Identidad',
                 keyboardType: TextInputType.number,
                 isRequired: true,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
                 validator: (value) => value!.length < 4 || value.length > 15 ? 'Cédula inválida' : null,
               ),
               const SizedBox(height: 15),
@@ -211,6 +213,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
                 labelText: 'Teléfono Paciente',
                 keyboardType: TextInputType.phone,
                 isRequired: true,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
               ),
               const SizedBox(height: 15),
 
@@ -253,19 +256,22 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
               _buildTextFormField(controller: _contactoParentescoController, labelText: 'Parentesco', isRequired: true),
               const SizedBox(height: 15),
 
-              // NUEVO CAMPO: TELÉFONO DEL CONTACTO
+              // Campo de Teléfono del Contacto
               _buildTextFormField(
                 controller: _contactoTelefonoController, 
                 labelText: 'Teléfono Contacto', 
                 keyboardType: TextInputType.phone,
-                isRequired: true
+                isRequired: true,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
               ),
               const SizedBox(height: 15),
 
+              // Campo de Cédula del Contacto
               _buildTextFormField(
                 controller: _contactoCedulaController,
                 labelText: 'Cédula Contacto (Opcional)',
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
               ),
               const SizedBox(height: 30),
 
@@ -299,11 +305,13 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
     int maxLines = 1,
     bool isRequired = false,
     String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters, // Recibimos los formateadores
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      inputFormatters: inputFormatters, // Aplicamos los formateadores
       decoration: InputDecoration(
         labelText: isRequired ? '$labelText *' : labelText,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),

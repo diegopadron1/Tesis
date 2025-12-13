@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'admin_board_screen.dart';
+// IMPORTANTE: Esta ruta asume que el archivo está en lib/screens/resident/
 import 'resident/patient_search_screen.dart'; 
 import 'pharmacy/farmacia_inventory_screen.dart';
 import 'nurse/nurse_home_screen.dart';
-import 'historia_clinica_screen.dart'; // Pantalla de EDICIÓN
-import 'consultar_historia_screen.dart'; // NUEVA: Pantalla de LECTURA
+import 'historia_clinica_screen.dart';
+import 'consultar_historia_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -119,8 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                const Divider(), 
                
-               // 2. ACTUALIZAR HISTORIA (Para ambos o solo residentes, según tu flujo)
-               // Le cambié el nombre para que no se confunda con la nueva opción
+               // 2. ACTUALIZAR HISTORIA
                ListTile(
                 leading: const Icon(Icons.edit_note, color: Colors.indigo),
                 title: const Text('Actualizar Historia Clínica'),
@@ -130,13 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
-              // 3. CONSULTAR HISTORIAL (NUEVO - SOLO ESPECIALISTAS)
+              // 3. CONSULTAR HISTORIAL (SOLO ESPECIALISTAS)
               if (_rol == 'Especialista')
                 ListTile(
-                  leading: const Icon(Icons.menu_book, color: Colors.teal), // Icono distinto (libro/lectura)
+                  leading: const Icon(Icons.menu_book, color: Colors.teal),
                   title: const Text('Consultar Historial'),
                   subtitle: const Text('Modo Lectura'),
-                  tileColor: Colors.teal.withValues(alpha: 0.05), // Un fondo sutil para destacarlo
+                  // CORRECCIÓN: Usamos withValues para evitar el warning de deprecated_member_use
+                  tileColor: Colors.teal.withValues(alpha: 0.05),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultarHistoriaScreen()));

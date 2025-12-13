@@ -1,17 +1,14 @@
-// resident_home_screen.dart
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../login_screen.dart';
 
-// Importamos tus pantallas de módulos (Las modificaremos en el Paso 3)
+// Importamos tus pantallas de módulos
 import 'motivo_consulta_screen.dart'; 
 import 'examen_screen.dart';
 import 'antecedentes_screen.dart';
 import 'diagnostico_screen.dart';
-// import 'register_patient_screen.dart'; // YA NO NECESITAMOS LA PESTAÑA DE REGISTRO AQUÍ
 
 class ResidentHomeScreen extends StatelessWidget {
-  // Aceptamos los datos del paciente
   final Map<String, dynamic> pacienteData;
 
   const ResidentHomeScreen({super.key, required this.pacienteData});
@@ -22,7 +19,7 @@ class ResidentHomeScreen extends StatelessWidget {
     final String cedula = pacienteData['cedula'].toString();
 
     return DefaultTabController(
-      length: 5, // Quitamos "Registrar", quedan 5 módulos
+      length: 4, 
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Módulo Residente'),
@@ -43,13 +40,12 @@ class ResidentHomeScreen extends StatelessWidget {
             ),
           ],
           bottom: const TabBar(
-            isScrollable: true, // Importante si hay muchas pestañas
+            isScrollable: true,
             tabs: [
-              Tab(icon: Icon(Icons.note_add), text: "Motivo"),
+              Tab(icon: Icon(Icons.note_add), text: "Motivo & Triaje"),
               Tab(icon: Icon(Icons.accessibility_new), text: "Exámenes"),
               Tab(icon: Icon(Icons.history_edu), text: "Antecedentes"),
               Tab(icon: Icon(Icons.assignment_turned_in), text: "Diagnóstico"),
-              Tab(icon: Icon(Icons.monitor_heart), text: "Triaje"),
             ],
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
@@ -58,20 +54,14 @@ class ResidentHomeScreen extends StatelessWidget {
         ),
         body: Column(
           children: [
-            // --- HEADER CON DATOS DEL PACIENTE ---
             _buildPatientHeader(),
-            
-            // --- PESTAÑAS ---
             Expanded(
               child: TabBarView(
                 children: [
-                  // Pasamos la cédula a cada módulo
                   MotivoConsultaScreen(cedulaPaciente: cedula), 
                   ExamenScreen(cedulaPaciente: cedula),
                   AntecedentesScreen(cedulaPaciente: cedula),
                   DiagnosticoScreen(cedulaPaciente: cedula),
-                  // Placeholder Triaje
-                  const Center(child: Text("Módulo de Triaje en construcción")),
                 ],
               ),
             ),

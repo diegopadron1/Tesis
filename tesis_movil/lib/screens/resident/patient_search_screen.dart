@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Import necesario para FilteringTextInputFormatter
-// Corregimos las rutas: Retrocedemos 2 niveles (../../) para llegar a lib/
 import '../../services/historia_service.dart';
-// Estas están en la misma carpeta, así que no llevan ruta, solo el nombre
-import 'resident_home_screen.dart';
+
+// --- IMPORTS CRÍTICOS ---
+// Asegúrate de que 'resident_home_screen.dart' esté en la misma carpeta que este archivo.
+// Si resident_home_screen.dart tiene errores, PatientSearchScreen fallará.
+import 'resident_home_screen.dart'; 
 import 'register_patient_screen.dart';
 
 class PatientSearchScreen extends StatefulWidget {
@@ -22,20 +24,17 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
     final cedula = _cedulaController.text.trim();
 
     // 1. VALIDACIÓN DE CÉDULA
-    // Si está vacía O tiene una longitud inválida (menos de 4 o más de 15)
     if (cedula.isEmpty || cedula.length < 4 || cedula.length > 15) {
-      // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Error, cedula no valida"),
+          content: Text("Error, cédula no válida"),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 2),
         ),
       );
       
-      // Borrar la cédula escrita anteriormente
       _cedulaController.clear();
-      return; // Detener la ejecución aquí
+      return; 
     }
 
     setState(() => _isLoading = true);
@@ -53,6 +52,7 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
+            // ResidentHomeScreen es la clase que importamos
             builder: (context) => ResidentHomeScreen(pacienteData: data),
           ),
         );
@@ -68,14 +68,11 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
   }
 
   void _irARegistro() {
-    // Guardamos el texto antes de navegar por si quieres pasarlo, 
-    // aunque si falló la validación estricta arriba, aquí pasará una cédula válida.
     String cedulaAPasar = _cedulaController.text;
     
     Navigator.push(
       context,
       MaterialPageRoute(
-        // Enviamos la cédula que el usuario escribió para que no tenga que repetirla
         builder: (context) => RegisterPatientScreen(cedulaPrevia: cedulaAPasar),
       ),
     );
@@ -121,12 +118,12 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
             TextField(
               controller: _cedulaController,
               keyboardType: TextInputType.number,
-              // --- NUEVA RESTRICCIÓN AGREGADA ---
+              // --- RESTRICCIÓN AGREGADA ---
               // Esto asegura que el usuario SOLO pueda escribir dígitos (0-9)
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly
               ],
-              // ----------------------------------
+              // ----------------------------
               decoration: const InputDecoration(
                 labelText: "Cédula de Identidad",
                 border: OutlineInputBorder(),
