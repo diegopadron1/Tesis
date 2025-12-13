@@ -62,6 +62,10 @@ db.AntecedentesFamiliares = require("./AntecedentesFamiliares.js")(sequelize, Se
 db.HabitosPsicobiologicos = require("./HabitosPsicobiologicos.js")(sequelize, Sequelize);
 db.ContactoEmergencia = require("./ContactoEmergencia.js")(sequelize, Sequelize);
 
+// --- AGREGADO: NUEVO MODELO DE TRIAJE ---
+db.Triaje = require("./Triaje.js")(sequelize, Sequelize);
+// ----------------------------------------
+
 // Farmacia
 db.Medicamento = require("./Medicamento.js")(sequelize, Sequelize);
 db.MovimientoInventario = require("./MovimientoInventario.js")(sequelize, Sequelize);
@@ -76,14 +80,14 @@ db.SolicitudMedicamento = require("./SolicitudMedicamento.js")(sequelize, Sequel
 db.role.hasMany(db.user, { foreignKey: "id_rol" });
 db.user.belongsTo(db.role, { foreignKey: "id_rol", as: "rol" });
 
-// --- RELACIONES CLÍNICAS (CORREGIDAS CON ALIAS) ---
+// --- RELACIONES CLÍNICAS ---
 
 if (db.Paciente && db.Carpeta) {
-    // 1. Relación Paciente <-> Carpeta con ALIAS EXPLÍCITO
+    // 1. Relación Paciente <-> Carpeta
     db.Paciente.hasMany(db.Carpeta, { 
         foreignKey: 'cedula_paciente', 
         sourceKey: 'cedula',
-        as: 'listado_carpetas' // <--- ESTO ES CLAVE
+        as: 'listado_carpetas'
     });
     db.Carpeta.belongsTo(db.Paciente, { 
         foreignKey: 'cedula_paciente', 
@@ -101,27 +105,28 @@ if (db.Paciente && db.Carpeta) {
     db.Paciente.hasOne(db.ContactoEmergencia, { foreignKey: 'cedula_paciente' });
     db.ContactoEmergencia.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
 
-    // 4. Carpeta <-> Hijos
-    // Motivo
+    // 4. Paciente <-> Triaje (Relación 1 a Muchos, un paciente puede tener varios triajes en el tiempo)
+    if (db.Triaje) {
+        db.Paciente.hasMany(db.Triaje, { foreignKey: 'cedula_paciente' });
+        db.Triaje.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+    }
+
+    // 5. Carpeta <-> Hijos (Motivo, Diagnóstico, etc.)
     db.Carpeta.hasOne(db.MotivoConsulta, { foreignKey: 'id_carpeta' });
     db.MotivoConsulta.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 
-    // Diagnóstico
     db.Carpeta.hasOne(db.Diagnostico, { foreignKey: 'id_carpeta' });
     db.Diagnostico.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 
-    // Exámenes
     db.Carpeta.hasOne(db.ExamenFisico, { foreignKey: 'id_carpeta' });
     db.ExamenFisico.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
     
     db.Carpeta.hasOne(db.ExamenFuncional, { foreignKey: 'id_carpeta' });
     db.ExamenFuncional.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 
-    // Órdenes
     db.Carpeta.hasMany(db.OrdenesMedicas, { foreignKey: 'id_carpeta' });
     db.OrdenesMedicas.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 
-    // Antecedentes (Vinculados a Carpeta)
     db.Carpeta.hasOne(db.AntecedentesPersonales, { foreignKey: 'id_carpeta' });
     db.AntecedentesPersonales.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 

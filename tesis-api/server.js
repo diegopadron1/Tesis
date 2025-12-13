@@ -5,7 +5,6 @@ const bcrypt = require('bcryptjs'); // Necesario para la contraseña del admin
 require('dotenv').config();
 
 // --- IMPORTACIÓN DE RUTAS ---
-// (Respetando tus rutas originales)
 const patientRoutes = require('./routes/patientRoutes');
 const motivoConsultaRoutes = require('./routes/motivoConsulta.routes');
 const diagnosticoRoutes = require('./routes/diagnostico.routes');
@@ -14,9 +13,8 @@ const antecedentesRoutes = require('./routes/antecedentes.routes');
 const farmaciaRoutes = require('./routes/farmacia.routes');
 const enfermeriaRoutes = require('./routes/enfermeria.routes');
 const historiaRoutes = require('./routes/historia.routes');
-
-// Rutas de autenticación y usuario (Si no están en los archivos de arriba)
-// require('./routes/auth.routes')(app); -> Lo moveremos abajo para integrarlo correctamente
+// --- NUEVA RUTA DE TRIAJE ---
+const triajeRoutes = require('./routes/triaje.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,8 +34,8 @@ app.use(express.urlencoded({ extended: true }));
 // -----------------------------------------------------------------
 app.get('/', (req, res) => {
     res.status(200).send({
-      message: "API del Sistema de Emergencia Dr. Luis Razetti está funcionando.",
-      status: "online"
+        message: "API del Sistema de Emergencia Dr. Luis Razetti está funcionando.",
+        status: "online"
     });
 });
 
@@ -49,6 +47,8 @@ app.use('/api', antecedentesRoutes);
 app.use('/api/farmacia', farmaciaRoutes);
 app.use('/api/enfermeria', enfermeriaRoutes);
 app.use('/api/historia', historiaRoutes);
+// Usamos la nueva ruta
+app.use('/api', triajeRoutes); 
 
 // Importamos rutas que funcionan con require(app)
 require('./routes/auth.routes')(app);
@@ -59,22 +59,14 @@ require('./routes/user.routes')(app);
 // -----------------------------------------------------------------
 async function startServer() {
     try {
-        // A. Conectar a la Base de Datos
-        // Usamos la función robusta que creamos en models/index.js
         if (db.connectDB) {
             await db.connectDB();
-            // Nota: db.connectDB() ya hace el sync(), así que no es necesario repetirlo aquí
-            // a menos que quieras forzar { alter: true } explícitamente.
-            
             console.log('✅ Base de datos lista.');
-            
-            // B. Configuración Inicial de Datos (Roles y Admin)
             await initialDataSetup();
         } else {
             console.error("❌ Error Crítico: No se encontró la función connectDB en los modelos.");
         }
 
-        // C. Levantar el servidor
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 Servidor Express escuchando en http://localhost:${PORT}`);
         });
@@ -90,8 +82,6 @@ async function startServer() {
 // -----------------------------------------------------------------
 async function initialDataSetup() {
     try {
-        // CORRECCIÓN CLAVE: Usamos db.role y db.user (minúsculas)
-        // porque así se definieron en models/index.js
         const Rol = db.role; 
         const Usuario = db.user;
 
@@ -100,8 +90,6 @@ async function initialDataSetup() {
             return;
         }
 
-        // 1. Crear Roles
-        // Nota: Asegúrate que los nombres coincidan EXACTAMENTE con lo que espera tu frontend/auth
         const roles = ['Administrador', 'Residente', 'Enfermera', 'Farmacia', 'Especialista'];
         
         for (const nombre of roles) {
@@ -112,7 +100,6 @@ async function initialDataSetup() {
         }
         console.log('✅ Roles base verificados.');
 
-        // 2. Crear Usuario Administrador
         const adminRol = await Rol.findOne({ where: { nombre_rol: 'Administrador' } });
         
         if (adminRol) {
@@ -128,7 +115,7 @@ async function initialDataSetup() {
                     apellido: 'Sistema',
                     email: 'admin@razetti.com',
                     password: hashedPassword,
-                    id_rol: adminRol.id_rol // Usamos id_rol según tu modelo Rol.js
+                    id_rol: adminRol.id_rol 
                 });
                 console.log(`✅ Usuario Administrador creado: ${adminCedula} / admin123`);
             }
@@ -139,5 +126,4 @@ async function initialDataSetup() {
     }
 }
 
-// Inicia la aplicación
 startServer();
