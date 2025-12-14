@@ -28,8 +28,17 @@ class AuthService {
         // Guardar datos de sesión de forma segura
         await storage.write(key: 'jwt_token', value: responseBody['accessToken']);
         await storage.write(key: 'user_rol', value: responseBody['rol']);
-        // INTEGRACIÓN: Guardamos la cédula para que funcione el módulo de Enfermería
-        await storage.write(key: 'cedula', value: responseBody['cedula']); 
+        await storage.write(key: 'cedula', value: responseBody['cedula']);
+        
+        // --- NUEVO: GUARDAR NOMBRE Y APELLIDO ---
+        // Asegúrate de que tu backend envíe estos campos en el JSON de respuesta
+        if (responseBody['nombre'] != null) {
+          await storage.write(key: 'nombre', value: responseBody['nombre']);
+        }
+        if (responseBody['apellido'] != null) {
+          await storage.write(key: 'apellido', value: responseBody['apellido']);
+        }
+        // ----------------------------------------
         
         return {'success': true, 'data': responseBody};
       } else {
@@ -60,7 +69,20 @@ class AuthService {
     return await storage.read(key: 'cedula');
   }
 
-  // 6. Verificar si está logueado
+  // 6. Método para obtener el nombre completo del usuario logueado
+  Future<String?> getNombreCompleto() async {
+    String? nombre = await storage.read(key: 'nombre');
+    String? apellido = await storage.read(key: 'apellido');
+    
+    if (nombre != null && apellido != null) {
+      return "$nombre $apellido";
+    } else if (nombre != null) {
+      return nombre;
+    }
+    return null; // Retorna null si no hay datos guardados
+  }
+
+  // 7. Verificar si está logueado
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null;
@@ -68,7 +90,7 @@ class AuthService {
 
   // --- MÉTODOS DE ADMINISTRADOR ---
 
-  // 7. Obtener Roles desde el API
+  // 8. Obtener Roles desde el API
   Future<List<Rol>> getRoles() async {
     final token = await getToken();
     if (token == null) return [];
@@ -92,7 +114,7 @@ class AuthService {
     }
   }
 
-  // 8. Crear Usuario (Solo Admin)
+  // 9. Crear Usuario (Solo Admin)
   Future<Map<String, dynamic>> createUserByAdmin({
     required String cedula,
     required String nombre,
@@ -133,7 +155,7 @@ class AuthService {
     }
   }
 
-  // 9. Listar todos los usuarios (Solo Admin)
+  // 10. Listar todos los usuarios (Solo Admin)
   Future<List<Usuario>> getAllUsers() async {
     final token = await getToken();
     if (token == null) return [];
@@ -157,7 +179,7 @@ class AuthService {
     }
   }
 
-  // 10. Actualizar usuario (Solo Admin)
+  // 11. Actualizar usuario (Solo Admin)
   Future<Map<String, dynamic>> updateUserDetails({
     required String cedula,
     required Map<String, dynamic> updateData,
