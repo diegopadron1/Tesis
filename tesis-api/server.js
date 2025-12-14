@@ -61,10 +61,37 @@ async function startServer() {
     try {
         if (db.connectDB) {
             await db.connectDB();
-            console.log('✅ Base de datos lista.');
+            console.log('✅ Conexión establecida.');
+
+            // --- CÓDIGO DE LIMPIEZA DE BASE DE DATOS ---
+            try {
+                console.log('🔧 Intentando corregir columna estado...');
+                
+                // 1. Eliminar el valor por defecto temporalmente para evitar el error de casting
+                await db.sequelize.query('ALTER TABLE "Triaje" ALTER COLUMN "estado" DROP DEFAULT;');
+                
+                // 2. Forzar la columna a ser TEXTO (VARCHAR)
+                await db.sequelize.query('ALTER TABLE "Triaje" ALTER COLUMN "estado" TYPE VARCHAR(255);');
+                
+                // 3. Volver a poner el valor por defecto pero como Texto simple
+                await db.sequelize.query("ALTER TABLE \"Triaje\" ALTER COLUMN \"estado\" SET DEFAULT 'En Espera';");
+                
+                // 4. Borrar el tipo ENUM viejo si existe para que no estorbe
+                await db.sequelize.query('DROP TYPE IF EXISTS "enum_Triaje_estado";');
+                
+                console.log('✅ Columna estado corregida a TEXTO.');
+            } catch (err) {
+                console.log('ℹ️ La corrección no fue necesaria o ya se aplicó: ' + err.message);
+            }
+            // -------------------------------------------
+
+            // Sincronización normal
+            await db.sequelize.sync({ alter: true });
+            console.log('✅ Base de datos sincronizada.');
+
             await initialDataSetup();
         } else {
-            console.error("❌ Error Crítico: No se encontró la función connectDB en los modelos.");
+            console.error("❌ Error Crítico: No se encontró la función connectDB.");
         }
 
         app.listen(PORT, '0.0.0.0', () => {

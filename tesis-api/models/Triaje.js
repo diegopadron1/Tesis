@@ -42,8 +42,14 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(255), // Ej: "TA: 120/80, FC: 80"
             allowNull: true
         },
+        // Atendido por (Doctor/Residente):
+        residente_atendiendo: {
+            type: DataTypes.STRING(100), // Guardará el nombre del doctor/residente
+            allowNull: true
+        },
         estado: {
-            type: DataTypes.ENUM('En Espera', 'En Atención', 'Observación', 'Alta', 'Hospitalizado'),
+            type: DataTypes.STRING(50),
+            allowNull: false,
             defaultValue: 'En Espera'
         }
     }, {
