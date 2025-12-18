@@ -40,10 +40,10 @@ class MotivoConsultaService {
         return {
           'success': true, 
           'message': responseBody['message'],
-          'data': responseBody['data'] // Por si necesitas usar el objeto creado
+          'data': responseBody['data'] // Retornamos la data para obtener el ID
         };
       } else {
-        // Errores (400, 401, 403, 500)
+        // Errores
         final message = responseBody['message'] ?? 'Error desconocido.';
         return {
           'success': false,
@@ -58,4 +58,39 @@ class MotivoConsultaService {
       };
     }
   }
-}
+
+  // --- MÉTODO ACTUALIZAR (AHORA DENTRO DE LA CLASE) ---
+  Future<Map<String, dynamic>> updateMotivo(int idMotivo, String nuevoMotivo) async {
+    final token = await _authService.getToken();
+    
+    // CORRECCIÓN: Usamos ApiConfig en lugar de _baseUrl
+    // Asumimos que la ruta es: .../api/motivo-consulta/:id
+    final url = Uri.parse('${ApiConfig.motivoConsultaUrl}/$idMotivo'); 
+    
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token ?? '',
+        },
+        // CORRECCIÓN: Usamos la misma clave que en el create ('motivo_consulta')
+        body: jsonEncode({'motivo_consulta': nuevoMotivo}),
+      );
+      
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Motivo actualizado'};
+      } else {
+        return {
+          'success': false, 
+          'message': responseBody['message'] ?? 'Error al actualizar motivo'
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+} // <--- FIN DE LA CLASE

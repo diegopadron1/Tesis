@@ -40,9 +40,11 @@ class ResidentHomeScreen extends StatelessWidget {
             ),
           ],
           bottom: const TabBar(
-            isScrollable: true,
+            isScrollable: false,
+            labelPadding: EdgeInsets.zero,
+            labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
             tabs: [
-              Tab(icon: Icon(Icons.note_add), text: "Motivo & Triaje"),
+              Tab(icon: Icon(Icons.note_add), text: "Motivo y Triaje"),
               Tab(icon: Icon(Icons.accessibility_new), text: "Exámenes"),
               Tab(icon: Icon(Icons.history_edu), text: "Antecedentes"),
               Tab(icon: Icon(Icons.assignment_turned_in), text: "Diagnóstico"),

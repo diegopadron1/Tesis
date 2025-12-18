@@ -16,7 +16,11 @@ class AntecedentesService {
     };
   }
 
-  // 1. Crear Antecedente Personal
+  // ==========================================
+  // 1. ANTECEDENTE PERSONAL
+  // ==========================================
+  
+  // Crear
   Future<Map<String, dynamic>> createPersonal(
       String cedula, String tipo, String detalle) async {
     final headers = await _getHeaders();
@@ -38,7 +42,20 @@ class AntecedentesService {
     }
   }
 
-  // 2. Crear Antecedente Familiar
+  // Actualizar (CORREGIDO)
+  Future<Map<String, dynamic>> updatePersonal(int id, String tipo, String detalle) async {
+    final token = await _authService.getToken();
+    // CORRECCIÓN: Usamos ApiConfig en lugar de _baseUrl
+    final url = Uri.parse('${ApiConfig.antecedentesPersonalUrl}/$id'); 
+    
+    return _genericUpdate(url, {'tipo': tipo, 'detalle': detalle}, token);
+  }
+
+  // ==========================================
+  // 2. ANTECEDENTE FAMILIAR
+  // ==========================================
+
+  // Crear
   Future<Map<String, dynamic>> createFamiliar(String cedula, String tipo,
       String vivoMuerto, String? edad, String? patologias) async {
     final headers = await _getHeaders();
@@ -62,7 +79,25 @@ class AntecedentesService {
     }
   }
 
-  // 3. Crear Hábitos
+  // Actualizar (CORREGIDO)
+  Future<Map<String, dynamic>> updateFamiliar(int id, String tipo, String vivo, String edad, String patologias) async {
+    final token = await _authService.getToken();
+    // CORRECCIÓN: Usamos ApiConfig
+    final url = Uri.parse('${ApiConfig.antecedentesFamiliarUrl}/$id');
+    
+    return _genericUpdate(url, {
+      'tipo_familiar': tipo,
+      'vivo_muerto': vivo,
+      'edad': edad,
+      'patologias': patologias
+    }, token);
+  }
+
+  // ==========================================
+  // 3. HÁBITOS
+  // ==========================================
+
+  // Crear
   Future<Map<String, dynamic>> createHabitos(
       String cedula,
       String cafe,
@@ -96,10 +131,62 @@ class AntecedentesService {
     }
   }
 
+  // Actualizar (CORREGIDO)
+  Future<Map<String, dynamic>> updateHabitos(int id, String cafe, String tabaco, String alcohol, String drogas, String ocupacion, String sueno, String vivienda) async {
+    final token = await _authService.getToken();
+    // CORRECCIÓN: Usamos ApiConfig
+    final url = Uri.parse('${ApiConfig.antecedentesHabitosUrl}/$id');
+    
+    return _genericUpdate(url, {
+       'cafe': cafe, 'tabaco': tabaco, 'alcohol': alcohol, 'drogas_ilicitas': drogas,
+       'ocupacion': ocupacion, 'sueño': sueno, 'vivienda': vivienda
+    }, token);
+  }
+
+  // ==========================================
+  // HELPERS
+  // ==========================================
+
+  // Helper para hacer PUT genérico
+  Future<Map<String, dynamic>> _genericUpdate(Uri url, Map body, String? token) async {
+     try {
+       final response = await http.put(
+         url, 
+         headers: {
+           'Content-Type': 'application/json', 
+           'x-access-token': token ?? ''
+         },
+         body: jsonEncode(body)
+       );
+       
+       final data = jsonDecode(response.body);
+       
+       if (response.statusCode == 200) {
+         return {
+           'success': true, 
+           'message': data['message'], 
+           'data': data['data'] // Importante devolver data
+         };
+       } else {
+         return {
+           'success': false, 
+           'message': data['message'] ?? 'Error al actualizar'
+         };
+       }
+     } catch(e) {
+       return {'success': false, 'message': e.toString()};
+     }
+  }
+
+  // Helper para procesar respuesta de POST (CORREGIDO)
   Map<String, dynamic> _processResponse(http.Response response) {
     final body = jsonDecode(response.body);
     if (response.statusCode == 201) {
-      return {'success': true, 'message': body['message']};
+      return {
+        'success': true, 
+        'message': body['message'],
+        'data': body['data'] // <--- ¡ESTO FALTABA Y ES CRUCIAL PARA EL ID!
+      };
     } else {
       return {'success': false, 'message': body['message'] ?? 'Error desconocido'};
     }

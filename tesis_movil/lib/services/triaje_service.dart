@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart'; // Importante para debugPrint
+import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
 
 class TriajeService {
   final AuthService _authService = AuthService();
   
   // URL base apuntando a /api/triaje
+  // Asegúrate de que esta IP sea correcta para tu emulador/dispositivo
   final String _baseUrl = "http://10.0.2.2:3000/api/triaje"; 
 
   // 1. Crear Triaje
@@ -17,7 +18,6 @@ class TriajeService {
     String? signosVitales,
     String? motivoIngreso,
   }) async {
-    
     final token = await _authService.getToken();
     if (token == null) return {'success': false, 'message': 'Sesión no válida'};
 
@@ -40,7 +40,8 @@ class TriajeService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        return {'success': true, 'message': data['message']};
+        // Retornamos 'data' para obtener el ID en el frontend
+        return {'success': true, 'message': data['message'], 'data': data['data']};
       } else {
         return {'success': false, 'message': data['message'] ?? 'Error al guardar triaje'};
       }
@@ -96,23 +97,19 @@ class TriajeService {
     }
   }
 
-  // 4. Atender paciente (CORREGIDO)
-  // Nota: Cambié el nombre a 'atenderPaciente' para que coincida con tu home_screen.dart
+  // 4. Atender paciente
   Future<bool> atenderPaciente(int idTriaje, String nombreResidente) async {
-    // A. Validamos Token primero
     final token = await _authService.getToken();
     if (token == null) return false;
 
     try {
-      // B. Usamos _baseUrl (con guion bajo) y la estructura correcta
-      // La ruta final será: http://.../api/triaje/123/atender
       final url = Uri.parse('$_baseUrl/$idTriaje/atender');
       
       final response = await http.put(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'x-access-token': token, // C. Agregamos el token al header
+          'x-access-token': token,
         },
         body: jsonEncode({
           'nombre_residente': nombreResidente 
@@ -130,4 +127,39 @@ class TriajeService {
       return false;
     }
   }
-}
+
+  // 5. Método para actualizar un triaje existente (ESTO FALTABA DENTRO DE LA CLASE)
+  Future<Map<String, dynamic>> updateTriaje(int idTriaje, Map<String, dynamic> datos) async {
+    final token = await _authService.getToken();
+    final url = Uri.parse('$_baseUrl/$idTriaje'); 
+    
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token ?? '',
+        },
+        body: jsonEncode(datos),
+      );
+
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true, 
+          'message': 'Triaje actualizado', 
+          'data': responseBody['data'] // Retornamos la data actualizada
+        };
+      } else {
+        return {
+          'success': false, 
+          'message': responseBody['message'] ?? 'Error al actualizar triaje'
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+} // <--- IMPORTANTE: Esta llave cierra la clase TriajeService
