@@ -185,7 +185,7 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
         TextField(controller: _tipoCtrl, enabled: !_isLocked, decoration: const InputDecoration(labelText: "Parentesco (Ej: Madre)", border: OutlineInputBorder())),
         const SizedBox(height: 15),
         DropdownButtonFormField<String>(
-          value: _vivo,
+          initialValue: _vivo,
           decoration: const InputDecoration(labelText: "Estado", border: OutlineInputBorder()),
           items: ['Vivo', 'Muerto'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: _isLocked ? null : (v) => setState(() => _vivo = v!),
