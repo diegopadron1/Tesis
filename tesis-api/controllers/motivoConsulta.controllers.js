@@ -1,27 +1,25 @@
 const db = require('../models');
 const MotivoConsulta = db.MotivoConsulta;
-const Carpeta = db.Carpeta; // Necesitamos el modelo Carpeta
-const { Op } = require("sequelize"); // Para comparar fechas
+const Carpeta = db.Carpeta; 
+const { Op } = require("sequelize"); 
 
+// 1. CREAR MOTIVO (POST)
 exports.createMotivoConsulta = async (req, res) => {
     console.log("Intentando crear Motivo de Consulta...");
     
-    // 1. Validar la entrada
+    // Validar la entrada
     const { cedula_paciente, motivo_consulta } = req.body;
-
-    // Opcional: Si el frontend manda quién atiende, captúralo aquí
     const { id_usuario, atendido_por } = req.body; 
 
     if (!cedula_paciente || !motivo_consulta) {
         return res.status(400).send({
+            success: false, // Agregado para consistencia
             message: 'Debe proporcionar la cédula del paciente y el motivo de la consulta.'
         });
     }
 
     try {
         // --- LÓGICA DE CARPETA AUTOMÁTICA ---
-        
-        // Definir rango de tiempo (HOY)
         const inicioDia = new Date();
         inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date();
@@ -31,10 +29,7 @@ exports.createMotivoConsulta = async (req, res) => {
         let carpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: {
-                    [Op.gte]: inicioDia, 
-                    [Op.lte]: finDia     
-                }
+                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
             }
         });
 
@@ -45,34 +40,66 @@ exports.createMotivoConsulta = async (req, res) => {
                 cedula_paciente: cedula_paciente,
                 fecha_creacion: new Date(),
                 estatus: 'ABIERTA',
-                id_usuario: id_usuario || null,     // Opcional
-                atendido_por: atendido_por || null  // Opcional
+                id_usuario: id_usuario || null,
+                atendido_por: atendido_por || null
             });
         }
 
         // --- CREAR EL REGISTRO VINCULADO ---
-
         const nuevoMotivo = await MotivoConsulta.create({
             cedula_paciente: cedula_paciente,
             motivo_consulta: motivo_consulta,
-            id_carpeta: carpeta.id_carpeta // <--- ¡LA PIEZA CLAVE!
+            id_carpeta: carpeta.id_carpeta 
         });
 
-        // 3. Respuesta exitosa
+        // Respuesta exitosa
         res.status(201).send({
+            success: true, // Importante para el frontend
             message: 'Motivo de consulta registrado exitosamente.',
-            data: nuevoMotivo,
-            id_carpeta: carpeta.id_carpeta // Devolvemos el ID por si el frontend lo necesita
+            data: nuevoMotivo, // Flutter busca esto para obtener el ID
+            id_carpeta: carpeta.id_carpeta 
         });
 
     } catch (error) {
-        // 4. Manejo de errores
         console.error('Error al crear motivo de consulta:', error);
         res.status(500).send({
-            message: error.message || 'Ocurrió un error interno al registrar el motivo de consulta.'
+            success: false,
+            message: error.message || 'Ocurrió un error interno.'
         });
     }
 };
 
-// Podrías añadir una función para obtener el historial:
-// exports.getMotivosByPaciente = async (req, res) => { ... }
+// 2. ACTUALIZAR MOTIVO (PUT) <--- ESTA ES LA QUE FALTABA
+exports.updateMotivo = async (req, res) => {
+    try {
+        const { id } = req.params; // El ID que viene en la URL (ej: /api/motivo-consulta/32)
+        const { motivo_consulta } = req.body; // El nuevo texto editado
+
+        // Buscamos el registro usando el modelo correcto 'MotivoConsulta'
+        const motivo = await MotivoConsulta.findByPk(id);
+
+        if (!motivo) {
+            return res.status(404).send({ 
+                success: false,
+                message: "Motivo no encontrado." 
+            });
+        }
+
+        // Actualizamos el campo
+        motivo.motivo_consulta = motivo_consulta;
+        await motivo.save();
+
+        res.status(200).send({ 
+            success: true,
+            message: "Motivo actualizado correctamente.",
+            data: motivo
+        });
+
+    } catch (error) {
+        console.error("Error updateMotivo:", error);
+        res.status(500).send({ 
+            success: false,
+            message: "Error al actualizar: " + error.message 
+        });
+    }
+};

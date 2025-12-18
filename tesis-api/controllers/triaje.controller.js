@@ -162,3 +162,38 @@ exports.atenderTriaje = async (req, res) => {
         res.status(500).send({ message: "Error al procesar: " + error.message });
     }
 };
+
+// --- ACTUALIZAR TRIAJE EXISTENTE (Nuevo) ---
+exports.updateTriaje = async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Obtenemos los campos que queremos permitir actualizar
+        const { color, ubicacion, signos_vitales, motivo_ingreso } = req.body;
+
+        const triaje = await Triaje.findByPk(id);
+
+        if (!triaje) {
+            return res.status(404).send({ message: "Triaje no encontrado." });
+        }
+
+        // Actualizamos los campos si vienen en la petición
+        if (color) triaje.color = color;
+        if (ubicacion) triaje.ubicacion = ubicacion;
+        if (signos_vitales) triaje.signos_vitales = signos_vitales;
+        if (motivo_ingreso) triaje.motivo_ingreso = motivo_ingreso;
+
+        await triaje.save();
+
+        res.status(200).send({ 
+            success: true,
+            message: "Triaje actualizado correctamente.", 
+            data: triaje 
+        });
+    } catch (error) {
+        console.error("Error updateTriaje:", error);
+        res.status(500).send({ 
+            success: false, 
+            message: "Error al actualizar triaje: " + error.message 
+        });
+    }
+};

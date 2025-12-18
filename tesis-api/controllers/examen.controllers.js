@@ -1,15 +1,13 @@
 const db = require('../models');
 const ExamenFisico = db.ExamenFisico;
 const ExamenFuncional = db.ExamenFuncional;
-const Carpeta = db.Carpeta; // Importante: Traemos el modelo Carpeta
-const { Op } = require("sequelize"); // Importante: Para rangos de fecha
+const Carpeta = db.Carpeta; 
+const { Op } = require("sequelize"); 
 
-// --- CREAR EXAMEN FÍSICO ---
+// --- CREAR EXAMEN FÍSICO (Ya existente) ---
 exports.createExamenFisico = async (req, res) => {
     console.log("Intentando crear Examen Físico...");
     const { cedula_paciente, area, hallazgos } = req.body;
-    
-    // Opcional: capturar datos del médico si se envían
     const { id_usuario, atendido_por } = req.body; 
 
     if (!cedula_paciente || !area || !hallazgos) {
@@ -17,11 +15,9 @@ exports.createExamenFisico = async (req, res) => {
     }
 
     try {
-        // 1. LÓGICA DE CARPETA AUTOMÁTICA
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        // Buscar carpeta de hoy
         let carpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
@@ -29,7 +25,6 @@ exports.createExamenFisico = async (req, res) => {
             }
         });
 
-        // Si no existe, crearla
         if (!carpeta) {
             console.log(`📂 Creando carpeta automática (Examen Físico) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
@@ -41,17 +36,17 @@ exports.createExamenFisico = async (req, res) => {
             });
         }
 
-        // 2. GUARDAR CON VINCULACIÓN
         const nuevoFisico = await ExamenFisico.create({
             cedula_paciente,
             area,
             hallazgos,
-            id_carpeta: carpeta.id_carpeta // <--- OBLIGATORIO AHORA
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
+            success: true, // Agregado para consistencia
             message: 'Examen Físico registrado exitosamente.', 
-            data: nuevoFisico,
+            data: nuevoFisico, // Importante para capturar ID en Flutter
             id_carpeta: carpeta.id_carpeta 
         });
 
@@ -61,7 +56,7 @@ exports.createExamenFisico = async (req, res) => {
     }
 };
 
-// --- CREAR EXAMEN FUNCIONAL ---
+// --- CREAR EXAMEN FUNCIONAL (Ya existente) ---
 exports.createExamenFuncional = async (req, res) => {
     console.log("Intentando crear Examen Funcional...");
     const { cedula_paciente, sistema, hallazgos } = req.body;
@@ -72,7 +67,6 @@ exports.createExamenFuncional = async (req, res) => {
     }
 
     try {
-        // 1. LÓGICA DE CARPETA AUTOMÁTICA
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
@@ -94,22 +88,91 @@ exports.createExamenFuncional = async (req, res) => {
             });
         }
 
-        // 2. GUARDAR CON VINCULACIÓN
         const nuevoFuncional = await ExamenFuncional.create({
             cedula_paciente,
             sistema,
             hallazgos,
-            id_carpeta: carpeta.id_carpeta // <--- OBLIGATORIO AHORA
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
+            success: true, // Agregado para consistencia
             message: 'Examen Funcional registrado exitosamente.', 
-            data: nuevoFuncional, 
+            data: nuevoFuncional, // Importante para capturar ID en Flutter
             id_carpeta: carpeta.id_carpeta 
         });
 
     } catch (error) {
         console.error("Error creando Examen Funcional:", error);
         res.status(500).send({ message: error.message || 'Error al registrar examen funcional.' });
+    }
+};
+
+// ==========================================================
+// NUEVAS FUNCIONES DE ACTUALIZACIÓN (PUT)
+// ==========================================================
+
+// --- ACTUALIZAR EXAMEN FÍSICO ---
+exports.updateExamenFisico = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { area, hallazgos } = req.body;
+
+        // Buscar por Primary Key (id_examen_fisico o id)
+        const examen = await ExamenFisico.findByPk(id);
+
+        if (!examen) {
+            return res.status(404).send({ 
+                success: false, 
+                message: "Examen Físico no encontrado." 
+            });
+        }
+
+        // Actualizar datos
+        examen.area = area;
+        examen.hallazgos = hallazgos;
+        await examen.save();
+
+        res.status(200).send({ 
+            success: true,
+            message: "Examen Físico actualizado correctamente.",
+            data: examen 
+        });
+
+    } catch (error) {
+        console.error("Error actualizando Examen Físico:", error);
+        res.status(500).send({ message: "Error interno: " + error.message });
+    }
+};
+
+// --- ACTUALIZAR EXAMEN FUNCIONAL ---
+exports.updateExamenFuncional = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { sistema, hallazgos } = req.body;
+
+        const examen = await ExamenFuncional.findByPk(id);
+
+        if (!examen) {
+            return res.status(404).send({ 
+                success: false, 
+                message: "Examen Funcional no encontrado." 
+            });
+        }
+
+        // Actualizar datos
+        examen.sistema = sistema;
+        examen.hallazgos = hallazgos;
+        await examen.save();
+
+        res.status(200).send({ 
+            success: true,
+            message: "Examen Funcional actualizado correctamente.",
+            data: examen 
+        });
+
+    } catch (error) {
+        console.error("Error actualizando Examen Funcional:", error);
+        res.status(500).send({ message: "Error interno: " + error.message });
     }
 };

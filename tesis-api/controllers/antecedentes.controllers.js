@@ -161,3 +161,75 @@ exports.createHabitos = async (req, res) => {
         res.status(500).send({ message: error.message || "Error al registrar hábitos." });
     }
 };
+
+// ... (Tus funciones createPersonal, createFamiliar, createHabitos se quedan igual) ...
+
+// ==========================================
+// NUEVAS FUNCIONES DE ACTUALIZACIÓN (PUT)
+// ==========================================
+
+// 4. Actualizar Antecedente Personal
+exports.updatePersonal = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tipo, detalle } = req.body;
+
+        const registro = await AntecedentesPersonales.findByPk(id);
+        if (!registro) return res.status(404).send({ success: false, message: "Registro no encontrado." });
+
+        registro.tipo = tipo;
+        registro.detalle = detalle;
+        await registro.save();
+
+        res.status(200).send({ success: true, message: "Antecedente Personal actualizado.", data: registro });
+    } catch (error) {
+        res.status(500).send({ message: "Error interno: " + error.message });
+    }
+};
+
+// 5. Actualizar Antecedente Familiar
+exports.updateFamiliar = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tipo_familiar, vivo_muerto, edad, patologias } = req.body;
+
+        const registro = await AntecedentesFamiliares.findByPk(id);
+        if (!registro) return res.status(404).send({ success: false, message: "Registro no encontrado." });
+
+        registro.tipo_familiar = tipo_familiar;
+        registro.vivo_muerto = vivo_muerto;
+        registro.edad = edad;
+        registro.patologias = patologias;
+        await registro.save();
+
+        res.status(200).send({ success: true, message: "Antecedente Familiar actualizado.", data: registro });
+    } catch (error) {
+        res.status(500).send({ message: "Error interno: " + error.message });
+    }
+};
+
+// 6. Actualizar Hábitos
+exports.updateHabitos = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { cafe, tabaco, alcohol, drogas_ilicitas, ocupacion, sueño, vivienda } = req.body;
+
+        const registro = await HabitosPsicobiologicos.findByPk(id);
+        if (!registro) return res.status(404).send({ success: false, message: "Registro no encontrado." });
+
+        // Actualizar campos
+        registro.cafe = cafe;
+        registro.tabaco = tabaco;
+        registro.alcohol = alcohol;
+        registro.drogas_ilicitas = drogas_ilicitas;
+        registro.ocupacion = ocupacion;
+        registro.sueño = sueño; // Asegúrate que en tu modelo sea 'sueño' o 'sueno'
+        registro.vivienda = vivienda;
+        
+        await registro.save();
+
+        res.status(200).send({ success: true, message: "Hábitos actualizados.", data: registro });
+    } catch (error) {
+        res.status(500).send({ message: "Error interno: " + error.message });
+    }
+};

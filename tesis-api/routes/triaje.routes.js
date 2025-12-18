@@ -26,4 +26,7 @@ router.get('/triaje/:cedula', [verifyToken], controller.getTriajeByCedula);
 // - Agregamos [verifyToken] para seguridad.
 router.put('/triaje/:id/atender', [verifyToken], controller.atenderTriaje);
 
+// Actualizar datos del triaje (PUT)
+router.put('/triaje/:id', [verifyToken], controller.updateTriaje);
+
 module.exports = router;

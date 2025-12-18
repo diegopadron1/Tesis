@@ -10,4 +10,7 @@ router.post(
     diagnosticoController.createDiagnostico
 );
 
+// ACTUALIZAR (PUT) - NUEVA
+router.put('/diagnostico/:id', [verifyToken, isResident], diagnosticoController.updateDiagnostico);
+
 module.exports = router;

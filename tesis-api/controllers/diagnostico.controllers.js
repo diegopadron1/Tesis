@@ -126,3 +126,52 @@ exports.getDiagnosticosByPaciente = async (req, res) => {
         res.status(500).send({ message: 'Error al obtener historial.' });
     }
 };
+
+// ==========================================
+// NUEVA FUNCIÓN DE ACTUALIZACIÓN (PUT)
+// ==========================================
+exports.updateDiagnostico = async (req, res) => {
+    try {
+        const { id } = req.params; // Este ID será el id_diagnostico
+        const { 
+            descripcion, tipo, observaciones, // Campos Diagnóstico
+            id_orden, // Necesitamos saber qué orden actualizar
+            indicaciones_inmediatas, tratamientos_sugeridos, 
+            requerimiento_medicamentos, examenes_complementarios, conducta_seguir 
+        } = req.body;
+
+        // 1. ACTUALIZAR DIAGNÓSTICO
+        const diagnostico = await Diagnostico.findByPk(id);
+        if (!diagnostico) return res.status(404).send({ success: false, message: "Diagnóstico no encontrado." });
+
+        diagnostico.descripcion = descripcion;
+        diagnostico.tipo = tipo;
+        diagnostico.observaciones = observaciones;
+        await diagnostico.save();
+
+        // 2. ACTUALIZAR ÓRDENES MÉDICAS (Si existe id_orden)
+        let ordenActualizada = null;
+        if (id_orden) {
+            const orden = await OrdenesMedicas.findByPk(id_orden);
+            if (orden) {
+                orden.indicaciones_inmediatas = indicaciones_inmediatas;
+                orden.tratamientos_sugeridos = tratamientos_sugeridos;
+                orden.requerimiento_medicamentos = requerimiento_medicamentos;
+                orden.examenes_complementarios = examenes_complementarios;
+                orden.conducta_seguir = conducta_seguir;
+                await orden.save();
+                ordenActualizada = orden;
+            }
+        }
+
+        res.status(200).send({ 
+            success: true, 
+            message: "Diagnóstico y órdenes actualizados.", 
+            data: { diagnostico, orden: ordenActualizada }
+        });
+
+    } catch (error) {
+        console.error("Error updateDiagnostico:", error);
+        res.status(500).send({ message: "Error interno: " + error.message });
+    }
+};
