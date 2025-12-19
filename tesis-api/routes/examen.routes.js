@@ -22,4 +22,7 @@ router.put(
     examenController.updateExamenFuncional
 );
 
+// --- 3. OBTENER EXÁMENES DE HOY (GET) ---
+router.get('/examen/hoy/:cedula', [verifyToken, isResident], examenController.getExamenesHoy);
+
 module.exports = router;

@@ -13,4 +13,6 @@ router.put('/antecedentes/personal/:id', [verifyToken, isResident], antecedentes
 router.put('/antecedentes/familiar/:id', [verifyToken, isResident], antecedentesController.updateFamiliar);
 router.put('/antecedentes/habitos/:id', [verifyToken, isResident], antecedentesController.updateHabitos);
 
+router.get('/antecedentes/hoy/:cedula', [verifyToken, isResident], antecedentesController.getAntecedentesHoy);
+
 module.exports = router;

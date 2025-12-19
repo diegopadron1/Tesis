@@ -2,32 +2,35 @@ const db = require('../models');
 const AntecedentesPersonales = db.AntecedentesPersonales;
 const AntecedentesFamiliares = db.AntecedentesFamiliares;
 const HabitosPsicobiologicos = db.HabitosPsicobiologicos;
-const Carpeta = db.Carpeta; // Importante: Traemos el modelo Carpeta
-const { Op } = require("sequelize"); // Importante: Para rangos de fecha
+const Carpeta = db.Carpeta; 
+const { Op } = require("sequelize"); 
 
-// 1. Crear Antecedente Personal
+// 1. Crear Antecedente Personal (CON LÓGICA DE CARPETA INTELIGENTE)
 exports.createPersonal = async (req, res) => {
     try {
         const { cedula_paciente, tipo, detalle } = req.body;
-        // Opcional: datos del médico
         const { id_usuario, atendido_por } = req.body;
 
         if (!cedula_paciente || !tipo || !detalle) {
             return res.status(400).send({ message: "Faltan datos obligatorios." });
         }
 
-        // --- LÓGICA DE CARPETA AUTOMÁTICA ---
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        let carpeta = await Carpeta.findOne({
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
                 createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
-            }
+            },
+            order: [['createdAt', 'DESC']] // <--- Importante
         });
 
-        if (!carpeta) {
+        let carpeta;
+
+        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
             console.log(`📂 Creando carpeta automática (Ant. Personal) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
@@ -36,14 +39,16 @@ exports.createPersonal = async (req, res) => {
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            // Usar la existente
+            carpeta = ultimaCarpeta;
         }
 
-        // --- GUARDAR ---
         const nuevo = await AntecedentesPersonales.create({ 
             cedula_paciente, 
             tipo, 
             detalle,
-            id_carpeta: carpeta.id_carpeta // Vinculación obligatoria
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
@@ -58,7 +63,7 @@ exports.createPersonal = async (req, res) => {
     }
 };
 
-// 2. Crear Antecedente Familiar
+// 2. Crear Antecedente Familiar (CON LÓGICA DE CARPETA INTELIGENTE)
 exports.createFamiliar = async (req, res) => {
     try {
         const { cedula_paciente, tipo_familiar, vivo_muerto, edad, patologias } = req.body;
@@ -68,18 +73,22 @@ exports.createFamiliar = async (req, res) => {
             return res.status(400).send({ message: "Faltan datos obligatorios." });
         }
 
-        // --- LÓGICA DE CARPETA AUTOMÁTICA ---
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        let carpeta = await Carpeta.findOne({
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
                 createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
-            }
+            },
+            order: [['createdAt', 'DESC']]
         });
 
-        if (!carpeta) {
+        let carpeta;
+
+        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
             console.log(`📂 Creando carpeta automática (Ant. Familiar) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
@@ -88,16 +97,17 @@ exports.createFamiliar = async (req, res) => {
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            carpeta = ultimaCarpeta;
         }
 
-        // --- GUARDAR ---
         const nuevo = await AntecedentesFamiliares.create({ 
             cedula_paciente, 
             tipo_familiar, 
             vivo_muerto, 
             edad, 
             patologias,
-            id_carpeta: carpeta.id_carpeta // Vinculación obligatoria
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
@@ -112,7 +122,7 @@ exports.createFamiliar = async (req, res) => {
     }
 };
 
-// 3. Crear Hábitos Psicobiológicos
+// 3. Crear Hábitos Psicobiológicos (CON LÓGICA DE CARPETA INTELIGENTE)
 exports.createHabitos = async (req, res) => {
     try {
         const { cedula_paciente, cafe, tabaco, alcohol, drogas_ilicitas, ocupacion, sueño, vivienda } = req.body;
@@ -122,18 +132,22 @@ exports.createHabitos = async (req, res) => {
             return res.status(400).send({ message: "La cédula del paciente es obligatoria." });
         }
 
-        // --- LÓGICA DE CARPETA AUTOMÁTICA ---
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        let carpeta = await Carpeta.findOne({
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
                 createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
-            }
+            },
+            order: [['createdAt', 'DESC']]
         });
 
-        if (!carpeta) {
+        let carpeta;
+
+        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
             console.log(`📂 Creando carpeta automática (Hábitos) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
@@ -142,12 +156,13 @@ exports.createHabitos = async (req, res) => {
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            carpeta = ultimaCarpeta;
         }
 
-        // --- GUARDAR ---
         const nuevo = await HabitosPsicobiologicos.create({
             cedula_paciente, cafe, tabaco, alcohol, drogas_ilicitas, ocupacion, sueño, vivienda,
-            id_carpeta: carpeta.id_carpeta // Vinculación obligatoria
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
@@ -162,10 +177,8 @@ exports.createHabitos = async (req, res) => {
     }
 };
 
-// ... (Tus funciones createPersonal, createFamiliar, createHabitos se quedan igual) ...
-
 // ==========================================
-// NUEVAS FUNCIONES DE ACTUALIZACIÓN (PUT)
+// ACTUALIZACIONES (PUT) - SE MANTIENEN IGUAL
 // ==========================================
 
 // 4. Actualizar Antecedente Personal
@@ -223,7 +236,7 @@ exports.updateHabitos = async (req, res) => {
         registro.alcohol = alcohol;
         registro.drogas_ilicitas = drogas_ilicitas;
         registro.ocupacion = ocupacion;
-        registro.sueño = sueño; // Asegúrate que en tu modelo sea 'sueño' o 'sueno'
+        registro.sueño = sueño; 
         registro.vivienda = vivienda;
         
         await registro.save();
@@ -231,5 +244,46 @@ exports.updateHabitos = async (req, res) => {
         res.status(200).send({ success: true, message: "Hábitos actualizados.", data: registro });
     } catch (error) {
         res.status(500).send({ message: "Error interno: " + error.message });
+    }
+};
+
+// ==========================================
+// CONSULTA (GET) - CON LÓGICA DE ALTA
+// ==========================================
+exports.getAntecedentesHoy = async (req, res) => {
+    try {
+        const { cedula } = req.params;
+        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
+        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
+
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const carpeta = await Carpeta.findOne({
+            where: { cedula_paciente: cedula, createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia } },
+            order: [['createdAt', 'DESC']] // <--- Importante
+        });
+
+        // A. Si no hay carpeta
+        if (!carpeta) {
+            return res.status(200).send({ success: true, data: { personal: null, familiar: null, habitos: null } });
+        }
+
+        // B. Si la carpeta está CERRADA (Alta) -> Retornar vacío para nuevo ingreso
+        if (carpeta.estatus === 'Alta') {
+            return res.status(200).send({ success: true, data: { personal: null, familiar: null, habitos: null } });
+        }
+
+        // 2. Buscar los 3 tipos vinculados a esa carpeta ABIERTA
+        const personal = await AntecedentesPersonales.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+        const familiar = await AntecedentesFamiliares.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+        const habitos = await HabitosPsicobiologicos.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+
+        res.status(200).send({
+            success: true,
+            data: { personal, familiar, habitos }
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Error al obtener antecedentes." });
     }
 };

@@ -4,175 +4,184 @@ const ExamenFuncional = db.ExamenFuncional;
 const Carpeta = db.Carpeta; 
 const { Op } = require("sequelize"); 
 
-// --- CREAR EXAMEN FÍSICO (Ya existente) ---
+// --- CREAR EXAMEN FÍSICO ---
 exports.createExamenFisico = async (req, res) => {
     console.log("Intentando crear Examen Físico...");
     const { cedula_paciente, area, hallazgos } = req.body;
     const { id_usuario, atendido_por } = req.body; 
 
     if (!cedula_paciente || !area || !hallazgos) {
-        return res.status(400).send({ message: 'Faltan datos: Cédula, Área o Hallazgos.' });
+        return res.status(400).send({ message: 'Faltan datos.' });
     }
 
     try {
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        let carpeta = await Carpeta.findOne({
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
                 createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
-            }
+            },
+            order: [['createdAt', 'DESC']] // <--- Importante: La más reciente
         });
 
-        if (!carpeta) {
+        let carpeta;
+
+        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
             console.log(`📂 Creando carpeta automática (Examen Físico) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
-                cedula_paciente: cedula_paciente,
+                cedula_paciente,
                 fecha_creacion: new Date(),
                 estatus: 'ABIERTA',
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            // Usar la existente
+            carpeta = ultimaCarpeta;
         }
 
         const nuevoFisico = await ExamenFisico.create({
             cedula_paciente,
             area,
             hallazgos,
-            id_carpeta: carpeta.id_carpeta 
+            id_carpeta: carpeta.id_carpeta // Vinculación
         });
 
         res.status(201).send({ 
-            success: true, // Agregado para consistencia
-            message: 'Examen Físico registrado exitosamente.', 
-            data: nuevoFisico, // Importante para capturar ID en Flutter
-            id_carpeta: carpeta.id_carpeta 
+            success: true,
+            message: 'Examen Físico guardado.', 
+            data: nuevoFisico
         });
 
     } catch (error) {
-        console.error("Error creando Examen Físico:", error);
-        res.status(500).send({ message: error.message || 'Error al registrar examen físico.' });
+        console.error("Error Examen Físico:", error);
+        res.status(500).send({ message: error.message });
     }
 };
 
-// --- CREAR EXAMEN FUNCIONAL (Ya existente) ---
+// --- CREAR EXAMEN FUNCIONAL ---
 exports.createExamenFuncional = async (req, res) => {
     console.log("Intentando crear Examen Funcional...");
     const { cedula_paciente, sistema, hallazgos } = req.body;
     const { id_usuario, atendido_por } = req.body;
 
     if (!cedula_paciente || !sistema || !hallazgos) {
-        return res.status(400).send({ message: 'Faltan datos: Cédula, Sistema o Hallazgos.' });
+        return res.status(400).send({ message: 'Faltan datos.' });
     }
 
     try {
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        let carpeta = await Carpeta.findOne({
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
                 createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
-            }
+            },
+            order: [['createdAt', 'DESC']] // <--- Importante
         });
 
-        if (!carpeta) {
+        let carpeta;
+
+        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
             console.log(`📂 Creando carpeta automática (Examen Funcional) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
-                cedula_paciente: cedula_paciente,
+                cedula_paciente,
                 fecha_creacion: new Date(),
                 estatus: 'ABIERTA',
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            carpeta = ultimaCarpeta;
         }
 
         const nuevoFuncional = await ExamenFuncional.create({
             cedula_paciente,
             sistema,
             hallazgos,
-            id_carpeta: carpeta.id_carpeta 
+            id_carpeta: carpeta.id_carpeta // Vinculación
         });
 
         res.status(201).send({ 
-            success: true, // Agregado para consistencia
-            message: 'Examen Funcional registrado exitosamente.', 
-            data: nuevoFuncional, // Importante para capturar ID en Flutter
-            id_carpeta: carpeta.id_carpeta 
+            success: true,
+            message: 'Examen Funcional guardado.', 
+            data: nuevoFuncional
         });
 
     } catch (error) {
-        console.error("Error creando Examen Funcional:", error);
-        res.status(500).send({ message: error.message || 'Error al registrar examen funcional.' });
+        console.error("Error Examen Funcional:", error);
+        res.status(500).send({ message: error.message });
     }
 };
 
-// ==========================================================
-// NUEVAS FUNCIONES DE ACTUALIZACIÓN (PUT)
-// ==========================================================
-
-// --- ACTUALIZAR EXAMEN FÍSICO ---
+// --- ACTUALIZACIONES (PUT) ---
 exports.updateExamenFisico = async (req, res) => {
     try {
         const { id } = req.params;
-        const { area, hallazgos } = req.body;
-
-        // Buscar por Primary Key (id_examen_fisico o id)
-        const examen = await ExamenFisico.findByPk(id);
-
-        if (!examen) {
-            return res.status(404).send({ 
-                success: false, 
-                message: "Examen Físico no encontrado." 
-            });
-        }
-
-        // Actualizar datos
-        examen.area = area;
-        examen.hallazgos = hallazgos;
-        await examen.save();
-
-        res.status(200).send({ 
-            success: true,
-            message: "Examen Físico actualizado correctamente.",
-            data: examen 
-        });
-
+        await ExamenFisico.update(req.body, { where: { id_fisico: id } });
+        res.status(200).send({ success: true, message: "Actualizado correctamente." });
     } catch (error) {
-        console.error("Error actualizando Examen Físico:", error);
-        res.status(500).send({ message: "Error interno: " + error.message });
+        res.status(500).send({ message: error.message });
     }
 };
 
-// --- ACTUALIZAR EXAMEN FUNCIONAL ---
 exports.updateExamenFuncional = async (req, res) => {
     try {
         const { id } = req.params;
-        const { sistema, hallazgos } = req.body;
+        await ExamenFuncional.update(req.body, { where: { id_examen: id } });
+        res.status(200).send({ success: true, message: "Actualizado correctamente." });
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+};
 
-        const examen = await ExamenFuncional.findByPk(id);
+// --- OBTENER EXÁMENES DE HOY ---
+exports.getExamenesHoy = async (req, res) => {
+    try {
+        const { cedula } = req.params;
+        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
+        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        if (!examen) {
-            return res.status(404).send({ 
-                success: false, 
-                message: "Examen Funcional no encontrado." 
-            });
+        // 1. Buscar la ÚLTIMA carpeta de Hoy
+        const carpeta = await Carpeta.findOne({
+            where: {
+                cedula_paciente: cedula,
+                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+            },
+            order: [['createdAt', 'DESC']] // <--- Importante
+        });
+
+        // A. Si no hay carpeta hoy
+        if (!carpeta) {
+            return res.status(200).send({ success: true, data: { fisico: null, funcional: null } });
         }
 
-        // Actualizar datos
-        examen.sistema = sistema;
-        examen.hallazgos = hallazgos;
-        await examen.save();
+        // B. Si la carpeta está CERRADA (Alta) -> Devolvemos vacio para permitir nuevo ingreso
+        if (carpeta.estatus === 'Alta') {
+            return res.status(200).send({ success: true, data: { fisico: null, funcional: null } });
+        }
 
-        res.status(200).send({ 
+        // 2. Buscar Examen Físico y Funcional de esa carpeta ABIERTA
+        const fisico = await ExamenFisico.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+        const funcional = await ExamenFuncional.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+
+        res.status(200).send({
             success: true,
-            message: "Examen Funcional actualizado correctamente.",
-            data: examen 
+            data: {
+                fisico: fisico,
+                funcional: funcional
+            }
         });
 
     } catch (error) {
-        console.error("Error actualizando Examen Funcional:", error);
-        res.status(500).send({ message: "Error interno: " + error.message });
+        console.error("Error getExamenesHoy:", error);
+        res.status(500).send({ message: "Error al cargar exámenes." });
     }
 };

@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 'Verde'
         },
-        // --- ZONAS ESPECÍFICAS AGREGADAS ---
+        // --- ZONAS ESPECÍFICAS ---
         ubicacion: {
             type: DataTypes.ENUM(
                 'Pasillo 1', 
@@ -31,7 +31,7 @@ module.exports = (sequelize, DataTypes) => {
                 'USAV'
             ),
             allowNull: false,
-            defaultValue: 'Sillas' // Valor por defecto seguro
+            defaultValue: 'Sillas'
         },
         // -----------------------------------
         motivo_ingreso: {
@@ -39,19 +39,25 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true
         },
         signos_vitales: {
-            type: DataTypes.STRING(255), // Ej: "TA: 120/80, FC: 80"
+            type: DataTypes.STRING(255),
             allowNull: true
         },
         // Atendido por (Doctor/Residente):
         residente_atendiendo: {
-            type: DataTypes.STRING(100), // Guardará el nombre del doctor/residente
+            type: DataTypes.STRING(100),
             allowNull: true
         },
         estado: {
-            type: DataTypes.STRING(50),
+            type: DataTypes.STRING(50), // Cambiado a STRING según tu server.js
             allowNull: false,
             defaultValue: 'En Espera'
+        },
+        // --- AQUÍ AGREGAMOS LA COLUMNA QUE FALTABA ---
+        id_carpeta: {
+            type: DataTypes.INTEGER,
+            allowNull: true // Permitimos null para compatibilidad
         }
+        // ---------------------------------------------
     }, {
         tableName: 'Triaje',
         freezeTableName: true,

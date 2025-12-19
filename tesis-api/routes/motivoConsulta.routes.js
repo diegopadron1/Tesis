@@ -20,5 +20,7 @@ router.put(
     isResident,
     motivoConsultaController.updateMotivo // Asegúrate de tener esta función en tu controlador
 );
+// 3. Ruta para obtener motivos de consulta por cédula y fecha de hoy
+router.get('/motivo-consulta/hoy/:cedula', [verifyToken, isResident], motivoConsultaController.getByCedulaHoy);
 
 module.exports = router;

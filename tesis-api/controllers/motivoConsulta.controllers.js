@@ -3,7 +3,7 @@ const MotivoConsulta = db.MotivoConsulta;
 const Carpeta = db.Carpeta; 
 const { Op } = require("sequelize"); 
 
-// 1. CREAR MOTIVO (POST)
+// 1. CREAR MOTIVO (POST) - CON LÓGICA MULTI-VISITA
 exports.createMotivoConsulta = async (req, res) => {
     console.log("Intentando crear Motivo de Consulta...");
     
@@ -13,36 +13,45 @@ exports.createMotivoConsulta = async (req, res) => {
 
     if (!cedula_paciente || !motivo_consulta) {
         return res.status(400).send({
-            success: false, // Agregado para consistencia
+            success: false, 
             message: 'Debe proporcionar la cédula del paciente y el motivo de la consulta.'
         });
     }
 
     try {
-        // --- LÓGICA DE CARPETA AUTOMÁTICA ---
         const inicioDia = new Date();
         inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date();
         finDia.setHours(23, 59, 59, 999);
 
-        // A. Buscar carpeta existente de hoy
-        let carpeta = await Carpeta.findOne({
+        // --- LÓGICA DE CARPETA INTELIGENTE ---
+        
+        // A. Buscar la ÚLTIMA carpeta de hoy (la más reciente)
+        const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
                 createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
-            }
+            },
+            order: [['createdAt', 'DESC']] // <--- IMPORTANTE: Traer la última creada
         });
 
-        // B. Si no existe, crearla
-        if (!carpeta) {
-            console.log(`📂 Creando carpeta automática para ${cedula_paciente}...`);
+        let carpeta;
+
+        // B. Decidir: ¿Crear Nueva o Usar Existente?
+        // Condición: Si NO existe carpeta hoy, O SI la última ya fue dada de 'Alta'
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+            console.log(`📂 Creando NUEVA carpeta para ${cedula_paciente} (Nueva visita o reingreso)...`);
+            
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
                 fecha_creacion: new Date(),
-                estatus: 'ABIERTA',
+                estatus: 'ABIERTA', // Siempre nace abierta
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            console.log(`📂 Usando carpeta existente ID ${ultimaCarpeta.id_carpeta} (El paciente sigue en atención)...`);
+            carpeta = ultimaCarpeta;
         }
 
         // --- CREAR EL REGISTRO VINCULADO ---
@@ -54,9 +63,9 @@ exports.createMotivoConsulta = async (req, res) => {
 
         // Respuesta exitosa
         res.status(201).send({
-            success: true, // Importante para el frontend
+            success: true, 
             message: 'Motivo de consulta registrado exitosamente.',
-            data: nuevoMotivo, // Flutter busca esto para obtener el ID
+            data: nuevoMotivo, 
             id_carpeta: carpeta.id_carpeta 
         });
 
@@ -69,13 +78,12 @@ exports.createMotivoConsulta = async (req, res) => {
     }
 };
 
-// 2. ACTUALIZAR MOTIVO (PUT) <--- ESTA ES LA QUE FALTABA
+// 2. ACTUALIZAR MOTIVO (PUT)
 exports.updateMotivo = async (req, res) => {
     try {
-        const { id } = req.params; // El ID que viene en la URL (ej: /api/motivo-consulta/32)
-        const { motivo_consulta } = req.body; // El nuevo texto editado
+        const { id } = req.params; 
+        const { motivo_consulta } = req.body; 
 
-        // Buscamos el registro usando el modelo correcto 'MotivoConsulta'
         const motivo = await MotivoConsulta.findByPk(id);
 
         if (!motivo) {
@@ -85,7 +93,6 @@ exports.updateMotivo = async (req, res) => {
             });
         }
 
-        // Actualizamos el campo
         motivo.motivo_consulta = motivo_consulta;
         await motivo.save();
 
@@ -101,5 +108,65 @@ exports.updateMotivo = async (req, res) => {
             success: false,
             message: "Error al actualizar: " + error.message 
         });
+    }
+};
+
+// Obtener Motivo y Triaje de HOY
+exports.getByCedulaHoy = async (req, res) => {
+    try {
+        const { cedula } = req.params;
+        console.log(`🔍 Buscando datos de HOY para cédula: ${cedula}`);
+
+        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
+        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
+
+        // 1. Buscar la ÚLTIMA carpeta de hoy
+        const carpeta = await Carpeta.findOne({
+            where: {
+                cedula_paciente: cedula,
+                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+            },
+            order: [['createdAt', 'DESC']] 
+        });
+
+        // Caso A: No existe carpeta hoy
+        if (!carpeta) {
+            console.log("❌ No se encontró carpeta para hoy.");
+            return res.status(200).send({ success: true, data: { motivo: null, triaje: null } });
+        }
+
+        console.log(`✅ Carpeta encontrada ID: ${carpeta.id_carpeta} (Estatus: ${carpeta.estatus})`);
+        console.log(`ℹ️ Estatus en Base de Datos: "${carpeta.estatus}"`);
+
+        // --- CORRECCIÓN AQUÍ ---
+        // Caso B: Existe carpeta, PERO está de 'Alta'.
+        // Debemos devolver NULL para que el frontend permita crear un ingreso nuevo.
+        if (carpeta.estatus === 'Alta') {
+            console.log("⚠️ La carpeta encontrada está CERRADA (Alta). Se retornan datos vacíos para nuevo ingreso.");
+            return res.status(200).send({ 
+                success: true, 
+                data: { motivo: null, triaje: null } // <--- Fingimos que no hay datos
+            });
+        }
+        // -----------------------
+
+        // 2. Buscar datos (Solo si la carpeta está ABIERTA)
+        const MotivoConsulta = db.MotivoConsulta;
+        const Triaje = db.Triaje; 
+
+        const motivo = await MotivoConsulta.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+        const triaje = await Triaje.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
+
+        res.status(200).send({
+            success: true,
+            data: {
+                motivo: motivo,
+                triaje: triaje
+            }
+        });
+
+    } catch (error) {
+        console.error("🔥 Error CRÍTICO en getByCedulaHoy:", error);
+        res.status(500).send({ message: "Error al obtener datos." });
     }
 };

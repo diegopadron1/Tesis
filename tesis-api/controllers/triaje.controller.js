@@ -1,48 +1,87 @@
 const db = require('../models');
 const Triaje = db.Triaje;
-const Paciente = db.Paciente; 
+const Paciente = db.Paciente;
+const Carpeta = db.Carpeta; 
 const Sequelize = db.Sequelize;
+const { Op } = require("sequelize"); 
 
-// Registrar un nuevo Triaje
+// 1. Registrar un nuevo Triaje (CON LÓGICA MULTI-VISITA)
 exports.createTriaje = async (req, res) => {
     try {
         const { cedula_paciente, color, ubicacion, motivo_ingreso, signos_vitales } = req.body;
+        const { id_usuario, atendido_por } = req.body; 
 
+        // 1. Validar Paciente
         const pacienteExistente = await Paciente.findOne({ where: { cedula: cedula_paciente } });
-
         if (!pacienteExistente) {
             return res.status(404).send({ message: "Paciente no encontrado. Regístrelo primero." });
         }
 
+        // 2. LÓGICA DE CARPETA INTELIGENTE
+        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
+        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
+
+        // Buscar la ÚLTIMA carpeta de hoy
+        const ultimaCarpeta = await Carpeta.findOne({
+            where: {
+                cedula_paciente: cedula_paciente,
+                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+            },
+            order: [['createdAt', 'DESC']] // <--- Importante: La más reciente
+        });
+
+        let carpeta;
+
+        // Si NO existe hoy O si la última ya fue dada de Alta -> Creamos nueva
+        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+            console.log(`📂 Creando carpeta automática (Triaje - Nueva visita) para ${cedula_paciente}...`);
+            
+            carpeta = await Carpeta.create({
+                cedula_paciente: cedula_paciente,
+                fecha_creacion: new Date(),
+                estatus: 'ABIERTA',
+                id_usuario: id_usuario || null,
+                atendido_por: atendido_por || null
+            });
+        } else {
+            // Si está ABIERTA, usamos la existente
+            carpeta = ultimaCarpeta;
+        }
+
+        // 3. Crear Triaje Vinculado
         const nuevoTriaje = await Triaje.create({
             cedula_paciente,
             color,
             ubicacion,
             motivo_ingreso,
             signos_vitales,
-            estado: 'En Espera'
+            estado: 'En Espera',
+            id_carpeta: carpeta.id_carpeta 
         });
 
-        res.status(201).send({ message: "Triaje registrado.", data: nuevoTriaje });
+        res.status(201).send({ 
+            message: "Triaje registrado.", 
+            data: nuevoTriaje,
+            id_carpeta: carpeta.id_carpeta
+        });
+
     } catch (error) {
         console.error("Error createTriaje:", error);
         res.status(500).send({ message: "Error DB: " + error.message });
     }
 };
 
-// --- OBTENER LISTA DE ACTIVOS (CORREGIDO) ---
+// --- OBTENER LISTA DE ACTIVOS ---
 exports.getTriajesActivos = async (req, res) => {
     try {
-        // 1. Buscamos los triajes
         const listaTriaje = await Triaje.findAll({
             where: {
                 estado: { [Sequelize.Op.ne]: 'Alta' } 
             },
             include: [{
                 model: Paciente,
-                // CORRECCIÓN: Pedimos 'nombre_apellido' que SÍ existe en tu modelo
                 attributes: ['cedula', 'nombre_apellido', 'edad'], 
-                required: true // INNER JOIN
+                required: true 
             }],
             order: [
                 [Sequelize.literal(`CASE 
@@ -57,12 +96,9 @@ exports.getTriajesActivos = async (req, res) => {
             ]
         });
 
-        // 2. Transformamos la respuesta (Asegúrate que esto esté DENTRO del try)
         const respuesta = listaTriaje.map(t => {
             const data = t.toJSON(); 
             const pacienteData = data.Paciente || data.paciente || {};
-
-            // Usamos el campo correcto: nombre_apellido
             const nombreCompleto = pacienteData.nombre_apellido || 'Desconocido';
             
             return {
@@ -74,11 +110,8 @@ exports.getTriajesActivos = async (req, res) => {
                 motivo_ingreso: data.motivo_ingreso,
                 signos_vitales: data.signos_vitales,
                 createdAt: data.createdAt,
-                estado: data.estado,
                 
-                // Mapeo correcto para el frontend
                 nombre_completo: nombreCompleto,
-                // Simulamos nombre y apellido separando por espacio (opcional)
                 nombre: nombreCompleto.split(' ')[0], 
                 apellido: nombreCompleto.split(' ').slice(1).join(' '),
                 edad: pacienteData.edad || '?',
@@ -86,7 +119,6 @@ exports.getTriajesActivos = async (req, res) => {
             };
         });
 
-        // 3. Enviamos la respuesta
         res.status(200).send(respuesta);
 
     } catch (error) {
@@ -96,19 +128,33 @@ exports.getTriajesActivos = async (req, res) => {
 };
 
 // Actualizar estado
+// Actualizar estado (Dashboard: En Espera -> Alta / Hospitalizar)
 exports.updateEstado = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { estado } = req.body;
+        const { id } = req.params; // ID del Triaje
+        const { estado } = req.body; // Nuevo estado (ej: 'Alta')
 
         const triaje = await Triaje.findByPk(id);
         if (!triaje) return res.status(404).send({ message: "Triaje no encontrado" });
 
+        // 1. Actualizar el estado del Triaje
         triaje.estado = estado;
         await triaje.save();
 
-        res.status(200).send({ message: `Estado actualizado a ${estado}` });
+        // 2. SINCRONIZACIÓN IMPORTANTE:
+        // Si el estado es 'Alta', cerramos también la Carpeta vinculada.
+        if (estado === 'Alta' && triaje.id_carpeta) {
+            console.log(`🔒 Cerrando carpeta ID ${triaje.id_carpeta} por Alta médica...`);
+            
+            await Carpeta.update(
+                { estatus: 'Alta' }, // Cambiamos el estatus de la carpeta
+                { where: { id_carpeta: triaje.id_carpeta } }
+            );
+        }
+
+        res.status(200).send({ message: `Estado actualizado a ${estado} y carpeta sincronizada.` });
     } catch (error) {
+        console.error("Error updateEstado:", error);
         res.status(500).send({ message: "Error: " + error.message });
     }
 };
@@ -132,8 +178,8 @@ exports.getTriajeByCedula = async (req, res) => {
 // --- ATENDER PACIENTE ---
 exports.atenderTriaje = async (req, res) => {
     try {
-        const { id } = req.params; // El ID del triaje (viene de la tarjeta)
-        const { nombre_residente } = req.body; // El nombre del usuario logueado en la App
+        const { id } = req.params; 
+        const { nombre_residente } = req.body; 
 
         const triaje = await Triaje.findByPk(id);
 
@@ -141,12 +187,10 @@ exports.atenderTriaje = async (req, res) => {
             return res.status(404).send({ message: "Triaje no encontrado" });
         }
 
-        // Validamos que no esté ya en alta
         if (triaje.estado === 'Alta') {
             return res.status(400).send({ message: "El paciente ya fue dado de alta." });
         }
 
-        // Actualizamos datos
         triaje.estado = 'Siendo Atendido';
         triaje.residente_atendiendo = nombre_residente;
         
@@ -163,11 +207,10 @@ exports.atenderTriaje = async (req, res) => {
     }
 };
 
-// --- ACTUALIZAR TRIAJE EXISTENTE (Nuevo) ---
+// --- ACTUALIZAR TRIAJE EXISTENTE ---
 exports.updateTriaje = async (req, res) => {
     try {
         const { id } = req.params;
-        // Obtenemos los campos que queremos permitir actualizar
         const { color, ubicacion, signos_vitales, motivo_ingreso } = req.body;
 
         const triaje = await Triaje.findByPk(id);
@@ -176,7 +219,6 @@ exports.updateTriaje = async (req, res) => {
             return res.status(404).send({ message: "Triaje no encontrado." });
         }
 
-        // Actualizamos los campos si vienen en la petición
         if (color) triaje.color = color;
         if (ubicacion) triaje.ubicacion = ubicacion;
         if (signos_vitales) triaje.signos_vitales = signos_vitales;
