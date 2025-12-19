@@ -80,6 +80,41 @@ class _FormularioFisicoState extends State<_FormularioFisico> with AutomaticKeep
   @override
   bool get wantKeepAlive => true; 
 
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
+  // --- CARGAR DATOS ---
+  void _cargarDatos() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await _service.getDatosHoy(widget.cedula);
+      
+      if (mounted) {
+        if (res['success'] && res['data'] != null) {
+          final data = res['data'];
+          
+          // Si existe examen FÍSICO
+          if (data['fisico'] != null) {
+             setState(() {
+                _areaCtrl.text = data['fisico']['area'] ?? '';
+                _hallazgosCtrl.text = data['fisico']['hallazgos'] ?? '';
+                _idGuardado = data['fisico']['id_fisico'];
+                _formularioBloqueado = true; // Bloquear visualmente
+             });
+             debugPrint("✅ Examen Físico cargado.");
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading fisico: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _procesarGuardado() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -87,10 +122,8 @@ class _FormularioFisicoState extends State<_FormularioFisico> with AutomaticKeep
     Map<String, dynamic> res;
 
     if (_idGuardado == null) {
-      // CREAR
       res = await _service.createExamenFisico(widget.cedula, _areaCtrl.text, _hallazgosCtrl.text);
     } else {
-      // ACTUALIZAR
       res = await _service.updateExamenFisico(_idGuardado!, _areaCtrl.text, _hallazgosCtrl.text);
     }
     
@@ -100,20 +133,12 @@ class _FormularioFisicoState extends State<_FormularioFisico> with AutomaticKeep
       if (res['success']) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Examen Físico Guardado"), backgroundColor: Colors.green));
         
-        // --- CAPTURA DEL ID FÍSICO (id_fisico) ---
         if (_idGuardado == null && res['data'] != null) {
-           var idCapturado = res['data']['id_fisico'];
-           idCapturado ??= res['data']['id']; 
-           
-           if (idCapturado != null) {
-             _idGuardado = idCapturado;
-             debugPrint("✅ ID FÍSICO CAPTURADO: $_idGuardado");
-           }
+           var id = res['data']['id_fisico'] ?? res['data']['id']; 
+           if (id != null) _idGuardado = id;
         }
         
-        setState(() {
-          _formularioBloqueado = true;
-        });
+        setState(() => _formularioBloqueado = true);
 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: Colors.red));
@@ -123,7 +148,10 @@ class _FormularioFisicoState extends State<_FormularioFisico> with AutomaticKeep
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); 
+    super.build(context);
+    
+    if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
@@ -150,9 +178,7 @@ class _FormularioFisicoState extends State<_FormularioFisico> with AutomaticKeep
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: _isLoading 
-                    ? null 
-                    : () {
+                onPressed: _isLoading ? null : () {
                         if (_formularioBloqueado) {
                           setState(() => _formularioBloqueado = false); 
                         } else {
@@ -163,9 +189,7 @@ class _FormularioFisicoState extends State<_FormularioFisico> with AutomaticKeep
                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : Icon(_formularioBloqueado ? Icons.edit : Icons.save),
                 label: Text(
-                  _isLoading 
-                      ? "Guardando..." 
-                      : (_formularioBloqueado ? "Editar Examen Físico" : "Guardar Examen Físico"),
+                  _isLoading ? "Guardando..." : (_formularioBloqueado ? "Editar Examen Físico" : "Guardar Examen Físico"),
                   style: const TextStyle(fontSize: 18),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -205,13 +229,50 @@ class _FormularioFuncionalState extends State<_FormularioFuncional> with Automat
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
+  // --- CARGAR DATOS ---
+  void _cargarDatos() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await _service.getDatosHoy(widget.cedula);
+      
+      if (mounted) {
+        if (res['success'] && res['data'] != null) {
+          final data = res['data'];
+          
+          // Si existe examen FUNCIONAL
+          if (data['funcional'] != null) {
+             setState(() {
+                _sistemaCtrl.text = data['funcional']['sistema'] ?? '';
+                _hallazgosCtrl.text = data['funcional']['hallazgos'] ?? '';
+                
+                // Intento robusto de capturar ID
+                _idGuardado = data['funcional']['id_examen'] ?? data['funcional']['id_examen_funcional'] ?? data['funcional']['id'];
+                
+                _formularioBloqueado = true;
+             });
+             debugPrint("✅ Examen Funcional cargado.");
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading funcional: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _procesarGuardado() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     
     Map<String, dynamic> res;
 
-    // --- CREAR O ACTUALIZAR ---
     if (_idGuardado == null) {
       res = await _service.createExamenFuncional(widget.cedula, _sistemaCtrl.text, _hallazgosCtrl.text);
     } else {
@@ -224,29 +285,12 @@ class _FormularioFuncionalState extends State<_FormularioFuncional> with Automat
       if (res['success']) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Examen Funcional Guardado"), backgroundColor: Colors.green));
         
-        // --- CAPTURA DEL ID FUNCIONAL (CORREGIDA) ---
         if (_idGuardado == null && res['data'] != null) {
-           
-           // INTENTO 1: 'id_examen' (Según tu foto de la base de datos)
-           var idCapturado = res['data']['id_examen']; 
-           
-           // INTENTO 2: 'id_examen_funcional' (Por si acaso)
-           idCapturado ??= res['data']['id_examen_funcional'];
-           
-           // INTENTO 3: 'id' (Genérico)
-           idCapturado ??= res['data']['id']; 
-           
-           if (idCapturado != null) {
-             _idGuardado = idCapturado;
-             debugPrint("✅ ID FUNCIONAL CAPTURADO: $_idGuardado");
-           } else {
-             debugPrint("⚠️ ALERTA: No se encontró ID (Buscamos 'id_examen'). Data: ${res['data']}");
-           }
+           var id = res['data']['id_examen'] ?? res['data']['id_examen_funcional'] ?? res['data']['id']; 
+           if (id != null) _idGuardado = id;
         }
         
-        setState(() {
-          _formularioBloqueado = true;
-        });
+        setState(() => _formularioBloqueado = true);
 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: Colors.red));
@@ -257,6 +301,9 @@ class _FormularioFuncionalState extends State<_FormularioFuncional> with Automat
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    
+    if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
@@ -283,9 +330,7 @@ class _FormularioFuncionalState extends State<_FormularioFuncional> with Automat
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: _isLoading 
-                    ? null 
-                    : () {
+                onPressed: _isLoading ? null : () {
                         if (_formularioBloqueado) {
                           setState(() => _formularioBloqueado = false);
                         } else {
@@ -296,9 +341,7 @@ class _FormularioFuncionalState extends State<_FormularioFuncional> with Automat
                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : Icon(_formularioBloqueado ? Icons.edit : Icons.save),
                 label: Text(
-                  _isLoading 
-                      ? "Guardando..." 
-                      : (_formularioBloqueado ? "Editar Examen Funcional" : "Guardar Examen Funcional"),
+                  _isLoading ? "Guardando..." : (_formularioBloqueado ? "Editar Examen Funcional" : "Guardar Examen Funcional"),
                   style: const TextStyle(fontSize: 18),
                 ),
                 style: ElevatedButton.styleFrom(

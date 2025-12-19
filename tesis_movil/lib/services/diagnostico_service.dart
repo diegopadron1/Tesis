@@ -60,4 +60,20 @@ class DiagnosticoService {
       return {'success': false, 'message': 'Error: $e'};
     }
   }
+  // Obtener datos de hoy
+  Future<Map<String, dynamic>> getDatosHoy(String cedula) async {
+    final token = await _authService.getToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/diagnostico/hoy/$cedula');
+    try {
+      final response = await http.get(url, headers: {'Content-Type': 'application/json', 'x-access-token': token ?? ''});
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': body['data']};
+      } else {
+        return {'success': false, 'message': body['message']};
+      }
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

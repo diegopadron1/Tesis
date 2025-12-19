@@ -8,6 +8,8 @@ class TriajeService {
   
   // URL base apuntando a /api/triaje
   // Asegúrate de que esta IP sea correcta para tu emulador/dispositivo
+  // Si usas ApiConfig en otros archivos, podrías importarlo aquí también, 
+  // pero usaremos _baseUrl para mantener la consistencia con tu código actual.
   final String _baseUrl = "http://10.0.2.2:3000/api/triaje"; 
 
   // 1. Crear Triaje
@@ -128,7 +130,7 @@ class TriajeService {
     }
   }
 
-  // 5. Método para actualizar un triaje existente (ESTO FALTABA DENTRO DE LA CLASE)
+  // 5. Método para actualizar un triaje existente
   Future<Map<String, dynamic>> updateTriaje(int idTriaje, Map<String, dynamic> datos) async {
     final token = await _authService.getToken();
     final url = Uri.parse('$_baseUrl/$idTriaje'); 
@@ -149,7 +151,7 @@ class TriajeService {
         return {
           'success': true, 
           'message': 'Triaje actualizado', 
-          'data': responseBody['data'] // Retornamos la data actualizada
+          'data': responseBody['data'] 
         };
       } else {
         return {
@@ -162,4 +164,4 @@ class TriajeService {
     }
   }
 
-} // <--- IMPORTANTE: Esta llave cierra la clase TriajeService
+} // <--- FIN DE LA CLASE TRIAJESERVICE (No debe haber código después de esto)

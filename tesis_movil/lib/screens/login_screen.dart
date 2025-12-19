@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
-// IMPORTANTE: Importamos la pantalla de recuperación
 import 'auth/forgot_password_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
@@ -13,8 +12,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _cedulaController = TextEditingController(text: 'V12345678'); // Default Admin
-  final _passwordController = TextEditingController(text: 'admin123'); // Default Admin
+  final _cedulaController = TextEditingController(text: 'V12345678'); 
+  final _passwordController = TextEditingController(text: 'admin123'); 
   final _authService = AuthService();
   bool _isLoading = false;
 
@@ -37,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    // 1. Bloqueamos los campos y mostramos el indicador de carga
     setState(() {
       _isLoading = true;
     });
@@ -46,14 +46,15 @@ class _LoginScreenState extends State<LoginScreen> {
       password: _passwordController.text,
     );
 
-    if (!mounted) return; // Si el widget ya no está montado, ¡sal inmediatamente!
+    if (!mounted) return;
 
+    // 2. Quitamos el bloqueo (esto solo será visible si hay error, 
+    //    si es éxito cambiamos de pantalla rápido)
     setState(() {
       _isLoading = false;
     });
 
     if (result['success']) {
-      // Si el login es exitoso, navegamos a la pantalla principal
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
@@ -68,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         title: const Text('Emergencia Razetti - Login'),
         backgroundColor: const Color.fromARGB(255, 62, 2, 129),
-        foregroundColor: Colors.white, // Texto blanco en AppBar
+        foregroundColor: Colors.white, 
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(30),
@@ -80,49 +81,62 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 50),
+            
+            // --- CAMPO CÉDULA ---
             TextFormField(
               controller: _cedulaController,
+              // AQUÍ ESTÁ EL CAMBIO:
+              enabled: !_isLoading, // Se deshabilita si está cargando
               decoration: const InputDecoration(
                 labelText: 'Cédula de Identidad (Usuario)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
+                filled: true, // Opcional: para resaltar el fondo gris
               ),
               keyboardType: TextInputType.text,
             ),
+            
             const SizedBox(height: 20),
+            
+            // --- CAMPO CONTRASEÑA ---
             TextFormField(
               controller: _passwordController,
+              // AQUÍ ESTÁ EL CAMBIO:
+              enabled: !_isLoading, // Se deshabilita si está cargando
               decoration: const InputDecoration(
                 labelText: 'Contraseña',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.lock),
+                filled: true,
               ),
               obscureText: true,
             ),
             
-            // --- NUEVO: BOTÓN DE RECUPERACIÓN DE CONTRASEÑA ---
+            // --- BOTÓN OLVIDASTE CONTRASEÑA ---
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () {
-                  // Navegar a la pantalla de recuperación
-                  Navigator.push(
-                    context, 
-                    MaterialPageRoute(builder: (context) => const ForgotPasswordScreen())
-                  );
-                },
-                child: const Text(
+                // AQUÍ ESTÁ EL CAMBIO: Si carga, el botón no hace nada (null)
+                onPressed: _isLoading 
+                    ? null 
+                    : () {
+                        Navigator.push(
+                          context, 
+                          MaterialPageRoute(builder: (context) => const ForgotPasswordScreen())
+                        );
+                      },
+                child: Text(
                   '¿Olvidaste tu contraseña?',
                   style: TextStyle(
-                    color: Color.fromARGB(255, 62, 2, 129), 
+                    color: _isLoading ? Colors.grey : const Color.fromARGB(255, 62, 2, 129), 
                     fontWeight: FontWeight.bold
                   ),
                 ),
               ),
             ),
-            // --------------------------------------------------
 
             const SizedBox(height: 20),
+            
             _isLoading
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
@@ -130,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
                       backgroundColor: const Color.fromARGB(255, 62, 2, 129),
-                      foregroundColor: Colors.white, // Texto blanco
+                      foregroundColor: Colors.white, 
                     ),
                     child: const Text('INICIAR SESIÓN', style: TextStyle(fontSize: 16)),
                   ),

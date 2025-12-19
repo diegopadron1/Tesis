@@ -166,5 +166,29 @@ class ExamenService {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
+// 3. Obtener Datos de Hoy
+  Future<Map<String, dynamic>> getDatosHoy(String cedula) async {
+    final token = await _authService.getToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/examen/hoy/$cedula'); 
 
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json', 
+          'x-access-token': token ?? ''
+        },
+      );
+
+      final body = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': body['data']}; // data: { fisico: ..., funcional: ... }
+      } else {
+        return {'success': false, 'message': body['message'] ?? 'Error al cargar'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
 }

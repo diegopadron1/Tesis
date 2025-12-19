@@ -26,14 +26,66 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
   final DiagnosticoService _service = DiagnosticoService();
   
   bool _isLoading = false;
-  bool _formularioBloqueado = false; // Control de bloqueo
+  bool _formularioBloqueado = false; 
   
   // --- IDS PARA CONTROLAR EDICIÓN ---
   int? _idDiagnosticoGuardado;
   int? _idOrdenGuardada;
 
   @override
-  bool get wantKeepAlive => true; // Mantener vivo
+  bool get wantKeepAlive => true; 
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos(); // <--- IMPORTANTE
+  }
+
+  void _cargarDatos() async {
+    setState(() => _isLoading = true);
+    try {
+       final res = await _service.getDatosHoy(widget.cedulaPaciente);
+       
+       if (mounted && res['success'] && res['data'] != null) {
+          final data = res['data'];
+          bool encontroAlgo = false;
+
+          // 1. Cargar Diagnóstico
+          if(data['diagnostico'] != null) {
+             _descripcionCtrl.text = data['diagnostico']['descripcion'] ?? '';
+             _observacionesCtrl.text = data['diagnostico']['observaciones'] ?? '';
+             
+             String tipoTraido = data['diagnostico']['tipo'] ?? 'Presuntivo';
+             if(['Presuntivo', 'Definitivo'].contains(tipoTraido)) {
+                _tipoDiagnostico = tipoTraido;
+             }
+
+             _idDiagnosticoGuardado = data['diagnostico']['id_diagnostico'];
+             encontroAlgo = true;
+          }
+
+          // 2. Cargar Órdenes
+          if(data['orden'] != null) {
+             _indicacionesCtrl.text = data['orden']['indicaciones_inmediatas'] ?? '';
+             _tratamientosCtrl.text = data['orden']['tratamientos_sugeridos'] ?? '';
+             _medicamentosCtrl.text = data['orden']['requerimiento_medicamentos'] ?? '';
+             _examenesCtrl.text = data['orden']['examenes_complementarios'] ?? '';
+             _conductaCtrl.text = data['orden']['conducta_seguir'] ?? '';
+             
+             _idOrdenGuardada = data['orden']['id_orden'];
+             encontroAlgo = true;
+          }
+
+          if(encontroAlgo) {
+             setState(() => _formularioBloqueado = true);
+          }
+       }
+    } catch(e) {
+       debugPrint("Error loading diagnostico: $e");
+    } finally {
+       if(mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _procesarGuardado() async {
     if (!_formKey.currentState!.validate()) return;
@@ -41,7 +93,6 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
     Map<String, dynamic> result;
 
-    // Datos comunes a enviar
     final Map<String, dynamic> datosEnviar = {
       'cedula_paciente': widget.cedulaPaciente,
       'descripcion': _descripcionCtrl.text.trim(),
@@ -55,12 +106,11 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
       'conducta_seguir': _conductaCtrl.text.trim(),
     };
 
-    // --- LÓGICA CREAR O ACTUALIZAR ---
     if (_idDiagnosticoGuardado == null) {
       // CREAR
       result = await _service.createDiagnostico(datosEnviar);
     } else {
-      // ACTUALIZAR (Enviamos también el id_orden para actualizarla)
+      // ACTUALIZAR
       datosEnviar['id_orden'] = _idOrdenGuardada; 
       result = await _service.updateDiagnostico(_idDiagnosticoGuardado!, datosEnviar);
     }
@@ -76,29 +126,16 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
     );
     
     if (result['success']) {
-       // --- CAPTURAR IDs ---
-       // Tu backend devuelve: { diagnostico: {...}, orden: {...} } al crear
-       // Y devuelve: { data: { diagnostico: {...}, orden: {...} } } al actualizar
+       var data = result['data'] ?? result; 
        
-       var data = result['data'] ?? result; // Ajuste por si la estructura varía levemente
-       
-       // Capturar ID Diagnóstico
-       if (_idDiagnosticoGuardado == null) {
-          if (data['diagnostico'] != null) {
-             _idDiagnosticoGuardado = data['diagnostico']['id_diagnostico'];
-             debugPrint("✅ ID Diagnóstico: $_idDiagnosticoGuardado");
-          }
+       if (_idDiagnosticoGuardado == null && data['diagnostico'] != null) {
+          _idDiagnosticoGuardado = data['diagnostico']['id_diagnostico'];
        }
 
-       // Capturar ID Orden
-       if (_idOrdenGuardada == null) {
-          if (data['orden'] != null) {
-             _idOrdenGuardada = data['orden']['id_orden'];
-             debugPrint("✅ ID Orden: $_idOrdenGuardada");
-          }
+       if (_idOrdenGuardada == null && data['orden'] != null) {
+          _idOrdenGuardada = data['orden']['id_orden'];
        }
 
-       // Bloquear formulario
        setState(() {
          _formularioBloqueado = true;
        });
@@ -107,7 +144,10 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Necesario para KeepAlive
+    super.build(context);
+    
+    if (_isLoading && _idDiagnosticoGuardado == null) return const Center(child: CircularProgressIndicator());
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
@@ -131,8 +171,8 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
             const SizedBox(height: 15),
             
             DropdownButtonFormField<String>(
+              key: ValueKey(_tipoDiagnostico), // Truco para refrescar valor
               initialValue: _tipoDiagnostico, 
-              // Usamos null en onChanged para deshabilitar si está bloqueado
               onChanged: _formularioBloqueado ? null : (v) => setState(() => _tipoDiagnostico = v!),
               items: ['Presuntivo', 'Definitivo'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               decoration: const InputDecoration(labelText: "Tipo", border: OutlineInputBorder()),

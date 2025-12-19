@@ -191,4 +191,32 @@ class AntecedentesService {
       return {'success': false, 'message': body['message'] ?? 'Error desconocido'};
     }
   }
+  
+// Obtener todos los antecedentes de hoy
+  Future<Map<String, dynamic>> getDatosHoy(String cedula) async {
+    final token = await _authService.getToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/antecedentes/hoy/$cedula'); 
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json', 
+          'x-access-token': token ?? ''
+        },
+      );
+
+      final body = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': body['data']}; 
+        // data tendrá: { personal: ..., familiar: ..., habitos: ... }
+      } else {
+        return {'success': false, 'message': body['message'] ?? 'Error al cargar'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
 }

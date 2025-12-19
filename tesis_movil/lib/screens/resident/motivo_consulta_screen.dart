@@ -11,25 +11,24 @@ class MotivoConsultaScreen extends StatefulWidget {
   State<MotivoConsultaScreen> createState() => _MotivoConsultaScreenState();
 }
 
-// 1. AGREGAMOS EL MIXIN AQUÍ
 class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with AutomaticKeepAliveClientMixin {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   
   // Controla si el formulario es editable
+  // Si encontramos datos al entrar, esto será TRUE (bloqueado)
   bool _formularioBloqueado = false; 
 
   // --- VARIABLES PARA CONTROLAR EDICIÓN (Evitar Duplicados) ---
   int? _idMotivoGuardado;
   int? _idTriajeGuardado;
-  // ----------------------------------------------------------
 
-  // --- SECCIÓN 1: MOTIVO ---
+  // --- SERVICIOS ---
   final _motivoService = MotivoConsultaService();
-  final _motivoController = TextEditingController();
-
-  // --- SECCIÓN 2: TRIAJE ---
   final _triajeService = TriajeService();
+
+  // --- CONTROLADORES ---
+  final _motivoController = TextEditingController();
   final _signosVitalesController = TextEditingController();
   
   // Valores por defecto
@@ -43,9 +42,15 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
     'Trauma shock', 'Sillas', 'Libanes', 'USAV'
   ];
 
-  // 2. INDICAMOS QUE QUEREMOS MANTENER VIVO EL ESTADO
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 1. CARGAR DATOS AL INICIAR
+    _cargarDatos();
+  }
 
   @override
   void dispose() {
@@ -54,35 +59,76 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
     super.dispose();
   }
 
-  Color _getColor(String color) {
-    switch (color) {
-      case 'Rojo': return Colors.red;
-      case 'Naranja': return Colors.orange;
-      case 'Amarillo': return Colors.yellow.shade700;
-      case 'Verde': return Colors.green;
-      case 'Azul': return Colors.blue;
-      default: return Colors.grey;
+  // --- FUNCIÓN PARA CARGAR DATOS DESDE LA BD ---
+  void _cargarDatos() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Llamamos al servicio (Asegúrate de haber agregado getDatosHoy en tu servicio)
+      final res = await _motivoService.getDatosHoy(widget.cedulaPaciente);
+
+      if (mounted) {
+        if (res['success'] && res['data'] != null) {
+          final data = res['data'];
+          bool datosEncontrados = false;
+
+          setState(() {
+            // A. LLENAR MOTIVO SI EXISTE
+            if (data['motivo'] != null) {
+               _motivoController.text = data['motivo']['motivo_consulta'] ?? '';
+               _idMotivoGuardado = data['motivo']['id_consulta'] ?? data['motivo']['id'];
+               datosEncontrados = true;
+               debugPrint("✅ Motivo cargado: ${_motivoController.text}");
+            }
+
+            // B. LLENAR TRIAJE SI EXISTE
+            if (data['triaje'] != null) {
+               _signosVitalesController.text = data['triaje']['signos_vitales'] ?? '';
+               
+               // Validar color
+               String colorTraido = data['triaje']['color'];
+               if (_colores.contains(colorTraido)) {
+                 _colorSeleccionado = colorTraido;
+               }
+
+               // Validar ubicación
+               String ubicacionTraida = data['triaje']['ubicacion'];
+               if (_zonas.contains(ubicacionTraida)) {
+                 _ubicacionSeleccionada = ubicacionTraida;
+               }
+
+               _idTriajeGuardado = data['triaje']['id_triaje'] ?? data['triaje']['id'];
+               datosEncontrados = true;
+               debugPrint("✅ Triaje cargado.");
+            }
+
+            // Si encontramos datos, bloqueamos el formulario para que se vea "Guardado"
+            if (datosEncontrados) {
+              _formularioBloqueado = true;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error cargando datos: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- FUNCIÓN INTELIGENTE: CREAR O ACTUALIZAR ---
+  // --- FUNCIÓN GUARDAR / ACTUALIZAR ---
   void _guardarTodo() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    // =============================================
-    // PASO 1: MOTIVO DE CONSULTA
-    // =============================================
+    // 1. MOTIVO
     Map<String, dynamic> resMotivo;
-    
     if (_idMotivoGuardado == null) {
-      // A) No existe ID -> CREAMOS NUEVO
       resMotivo = await _motivoService.createMotivoConsulta(
         widget.cedulaPaciente,
         _motivoController.text.trim(),
       );
     } else {
-      // B) Ya existe ID -> ACTUALIZAMOS
       resMotivo = await _motivoService.updateMotivo(
         _idMotivoGuardado!,
         _motivoController.text.trim(),
@@ -91,32 +137,19 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
 
     if (!resMotivo['success']) {
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resMotivo['message']), backgroundColor: Colors.red)
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(resMotivo['message']), backgroundColor: Colors.red));
       return; 
     }
 
-    // --- CAPTURAR ID DEL MOTIVO ---
+    // Capturar ID Motivo
     if (_idMotivoGuardado == null && resMotivo['data'] != null) {
-        var idCapturado = resMotivo['data']['id_consulta'];
-        idCapturado ??= resMotivo['data']['id']; 
-
-        if (idCapturado != null) {
-          _idMotivoGuardado = idCapturado;
-          debugPrint("✅ ID MOTIVO CAPTURADO: $_idMotivoGuardado"); 
-        }
+        var id = resMotivo['data']['id_consulta'] ?? resMotivo['data']['id'];
+        if (id != null) _idMotivoGuardado = id;
     }
 
-    // =============================================
-    // PASO 2: TRIAJE
-    // =============================================
+    // 2. TRIAJE
     Map<String, dynamic> resTriaje;
-
     if (_idTriajeGuardado == null) {
-      // A) No existe ID -> CREAMOS NUEVO
       resTriaje = await _triajeService.createTriaje(
         cedulaPaciente: widget.cedulaPaciente,
         color: _colorSeleccionado,
@@ -125,7 +158,6 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
         motivoIngreso: _motivoController.text.trim(), 
       );
     } else {
-      // B) Ya existe ID -> ACTUALIZAMOS
       resTriaje = await _triajeService.updateTriaje(
         _idTriajeGuardado!,
         {
@@ -141,22 +173,16 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
     setState(() => _isLoading = false);
 
     if (resTriaje['success']) {
-      // --- CAPTURAR ID DEL TRIAJE ---
       if (_idTriajeGuardado == null && resTriaje['data'] != null) {
-         var idCapturado = resTriaje['data']['id_triaje'];
-         idCapturado ??= resTriaje['data']['id']; 
-
-         if (idCapturado != null) {
-            _idTriajeGuardado = idCapturado;
-            debugPrint("✅ ID TRIAJE CAPTURADO: $_idTriajeGuardado");
-         }
+         var id = resTriaje['data']['id_triaje'] ?? resTriaje['data']['id'];
+         if (id != null) _idTriajeGuardado = id;
       }
-
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Información guardada correctamente"), backgroundColor: Colors.green)
       );
       
-      // Bloqueamos el formulario tras guardar/actualizar con éxito
+      // AL GUARDAR EXITOSAMENTE, BLOQUEAMOS (MODO VISUALIZACIÓN)
       setState(() {
         _formularioBloqueado = true;
       });
@@ -168,10 +194,25 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
     }
   }
 
+  Color _getColor(String color) {
+    switch (color) {
+      case 'Rojo': return Colors.red;
+      case 'Naranja': return Colors.orange;
+      case 'Amarillo': return Colors.yellow.shade700;
+      case 'Verde': return Colors.green;
+      case 'Azul': return Colors.blue;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 3. LLAMAMOS A SUPER.BUILD AL INICIO
     super.build(context);
+
+    // Spinner inicial mientras carga datos
+    if (_isLoading && _idMotivoGuardado == null && _idTriajeGuardado == null) {
+       return const Center(child: CircularProgressIndicator());
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -181,8 +222,13 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- SECCIÓN 1: MOTIVO ---
-            const Text("1. Motivo de Consulta", 
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("1. Motivo de Consulta", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                if (_formularioBloqueado) const Icon(Icons.lock, color: Colors.grey, size: 20)
+              ],
+            ),
             const Divider(),
             const SizedBox(height: 10),
             
@@ -202,46 +248,36 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
             const SizedBox(height: 30),
 
             // --- SECCIÓN 2: TRIAJE ---
-            const Text("2. Triaje y Ubicación", 
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+            const Text("2. Triaje y Ubicación", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
             const Divider(),
             const SizedBox(height: 10),
 
             // Selector de Color
             DropdownButtonFormField<String>(
-              initialValue: _colorSeleccionado,
+              initialValue: _colorSeleccionado, // Usamos 'value' no 'initialValue' para que se actualice al cargar
               key: Key("color_$_colorSeleccionado"), 
-              
               onChanged: _formularioBloqueado ? null : (v) {
-                setState(() {
-                  _colorSeleccionado = v!;
-                });
+                setState(() => _colorSeleccionado = v!);
               },
               decoration: InputDecoration(
-                labelText: 'Nivel de Urgencia (Color)',
+                labelText: 'Nivel de Urgencia',
                 border: const OutlineInputBorder(),
                 prefixIcon: Icon(Icons.circle, color: _getColor(_colorSeleccionado)),
                 filled: true,
               ),
               items: _colores.map((color) => DropdownMenuItem(
                 value: color,
-                child: Text(color, style: TextStyle(
-                  color: _getColor(color), 
-                  fontWeight: FontWeight.bold
-                )),
+                child: Text(color, style: TextStyle(color: _getColor(color), fontWeight: FontWeight.bold)),
               )).toList(),
             ),
             const SizedBox(height: 15),
 
             // Selector de Zona
             DropdownButtonFormField<String>(
-              initialValue: _ubicacionSeleccionada,
+              initialValue: _ubicacionSeleccionada, // Usamos 'value'
               key: Key("zona_$_ubicacionSeleccionada"),
-
               onChanged: _formularioBloqueado ? null : (v) {
-                setState(() {
-                  _ubicacionSeleccionada = v!;
-                });
+                setState(() => _ubicacionSeleccionada = v!);
               },
               isExpanded: true, 
               decoration: const InputDecoration(
@@ -280,12 +316,12 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
                     ? null 
                     : () {
                         if (_formularioBloqueado) {
-                          // QUEREMOS EDITAR: Desbloqueamos
+                          // MODO EDICIÓN: Desbloqueamos
                           setState(() {
                             _formularioBloqueado = false;
                           });
                         } else {
-                          // QUEREMOS GUARDAR: Llamamos a la lógica inteligente
+                          // MODO GUARDAR: Enviamos datos
                           _guardarTodo();
                         }
                       },
@@ -295,7 +331,7 @@ class _MotivoConsultaScreenState extends State<MotivoConsultaScreen> with Automa
                 label: Text(
                   _isLoading 
                       ? "Guardando..." 
-                      : (_formularioBloqueado ? "Editar Consulta y Triaje" : "Registrar Consulta y Triaje"),
+                      : (_formularioBloqueado ? "Editar Consulta y Triaje" : "Guardar Información"),
                   style: const TextStyle(fontSize: 18),
                 ),
                 style: ElevatedButton.styleFrom(

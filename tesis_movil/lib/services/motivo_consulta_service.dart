@@ -92,5 +92,33 @@ class MotivoConsultaService {
       return {'success': false, 'message': 'Error: $e'};
     }
   }
+// --- OBTENER DATOS DE HOY ---
+  // Esta función es la que llama tu pantalla al iniciar
+  Future<Map<String, dynamic>> getDatosHoy(String cedula) async {
+    final token = await _authService.getToken();
+    // Asegúrate que ApiConfig.baseUrl sea correcto (ej: http://10.0.2.2:3000/api)
+    final url = Uri.parse('${ApiConfig.baseUrl}/motivo-consulta/hoy/$cedula'); 
 
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json', 
+          'x-access-token': token ?? ''
+        },
+      );
+
+      final body = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        // Retornamos la data. El backend debe enviar { motivo: ..., triaje: ... }
+        return {'success': true, 'data': body['data']}; 
+      } else {
+        return {'success': false, 'message': body['message'] ?? 'Error al cargar datos'};
+      }
+    } catch (e) {
+      debugPrint("Error getDatosHoy: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 } // <--- FIN DE LA CLASE

@@ -79,6 +79,32 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _cargar(); // <--- IMPORTANTE: Cargar datos al entrar
+  }
+
+  void _cargar() async {
+    setState(() => _isLoading = true);
+    try {
+       final res = await _service.getDatosHoy(widget.cedula);
+       if(mounted && res['success'] && res['data'] != null && res['data']['personal'] != null) {
+          final data = res['data']['personal'];
+          setState(() {
+             _tipoCtrl.text = data['tipo']?.toString() ?? '';
+             _detalleCtrl.text = data['detalle']?.toString() ?? '';
+             _idGuardado = data['id_antecedente'] ?? data['id'];
+             _isLocked = true; // Bloquear si ya existe
+          });
+       }
+    } catch(e) { 
+      debugPrint("Error cargando personal: $e"); 
+    } finally { 
+      if(mounted) setState(() => _isLoading = false); 
+    }
+  }
+
   void _guardar() async {
       if(_tipoCtrl.text.isEmpty) return;
       setState(() => _isLoading = true);
@@ -97,7 +123,6 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
         );
 
         if (res['success']) {
-           // CAPTURA ID: 'id_antecedente'
            if (_idGuardado == null && res['data'] != null) {
               _idGuardado = res['data']['id_antecedente'] ?? res['data']['id'];
               debugPrint("✅ Personal ID: $_idGuardado");
@@ -110,6 +135,9 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // Mostrar spinner si está cargando datos iniciales
+    if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -148,6 +176,42 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _cargar(); // <--- IMPORTANTE: Cargar datos al entrar
+  }
+
+  void _cargar() async {
+    setState(() => _isLoading = true);
+    try {
+       final res = await _service.getDatosHoy(widget.cedula);
+       if(mounted && res['success'] && res['data'] != null && res['data']['familiar'] != null) {
+          final data = res['data']['familiar'];
+          setState(() {
+             _tipoCtrl.text = data['tipo_familiar']?.toString() ?? '';
+             _edadCtrl.text = data['edad']?.toString() ?? '';
+             _patologiasCtrl.text = data['patologias']?.toString() ?? '';
+             
+             // Validación segura para el Dropdown
+             String vivoTraido = data['vivo_muerto']?.toString() ?? 'Vivo';
+             if (['Vivo', 'Muerto'].contains(vivoTraido)) {
+               _vivo = vivoTraido;
+             } else {
+               _vivo = 'Vivo';
+             }
+
+             _idGuardado = data['id_familiar'] ?? data['id'];
+             _isLocked = true;
+          });
+       }
+    } catch(e) { 
+      debugPrint("Error cargando familiar: $e"); 
+    } finally { 
+      if(mounted) setState(() => _isLoading = false); 
+    }
+  }
+
   void _guardar() async {
     if (_tipoCtrl.text.isEmpty) return;
     setState(() => _isLoading = true);
@@ -166,7 +230,6 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
       );
       
       if (res['success']) {
-         // CAPTURA ID: 'id_familiar'
          if (_idGuardado == null && res['data'] != null) {
             _idGuardado = res['data']['id_familiar'] ?? res['data']['id'];
             debugPrint("✅ Familiar ID: $_idGuardado");
@@ -179,13 +242,15 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         TextField(controller: _tipoCtrl, enabled: !_isLocked, decoration: const InputDecoration(labelText: "Parentesco (Ej: Madre)", border: OutlineInputBorder())),
         const SizedBox(height: 15),
         DropdownButtonFormField<String>(
-          initialValue: _vivo,
+          initialValue: _vivo, // Usamos value, no initialValue
           decoration: const InputDecoration(labelText: "Estado", border: OutlineInputBorder()),
           items: ['Vivo', 'Muerto'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: _isLocked ? null : (v) => setState(() => _vivo = v!),
@@ -229,6 +294,38 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _cargar(); // <--- IMPORTANTE: Cargar datos al entrar
+  }
+
+  void _cargar() async {
+    setState(() => _isLoading = true);
+    try {
+       final res = await _service.getDatosHoy(widget.cedula);
+       if(mounted && res['success'] && res['data'] != null && res['data']['habitos'] != null) {
+          final data = res['data']['habitos'];
+          setState(() {
+             _cafe.text = data['cafe']?.toString() ?? 'Niega';
+             _tabaco.text = data['tabaco']?.toString() ?? 'Niega';
+             _alcohol.text = data['alcohol']?.toString() ?? 'Niega';
+             _drogas.text = data['drogas_ilicitas']?.toString() ?? 'Niega';
+             _ocupacion.text = data['ocupacion']?.toString() ?? '';
+             _sueno.text = data['sueño']?.toString() ?? data['sueno']?.toString() ?? '';
+             _vivienda.text = data['vivienda']?.toString() ?? '';
+             
+             _idGuardado = data['id_habito'] ?? data['id'];
+             _isLocked = true;
+          });
+       }
+    } catch(e) { 
+      debugPrint("Error cargando habitos: $e"); 
+    } finally { 
+      if(mounted) setState(() => _isLoading = false); 
+    }
+  }
+
   void _guardar() async {
     setState(() => _isLoading = true);
     
@@ -246,7 +343,6 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
       );
 
       if (res['success']) {
-         // CAPTURA ID: 'id_habito'
          if (_idGuardado == null && res['data'] != null) {
             _idGuardado = res['data']['id_habito'] ?? res['data']['id'];
             debugPrint("✅ Habito ID: $_idGuardado");
@@ -259,6 +355,8 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
