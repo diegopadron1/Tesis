@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 class PatientCard extends StatelessWidget {
   final Map<String, dynamic> paciente;
   final VoidCallback onTap;
-  final VoidCallback onDarAlta;
-  final VoidCallback onAtender;
+  
+  // --- CAMBIO: AHORA SON OPCIONALES (NULLABLE) ---
+  final VoidCallback? onDarAlta;
+  final VoidCallback? onAtender;
 
   const PatientCard({
     super.key, 
     required this.paciente, 
     required this.onTap,
-    required this.onDarAlta,
-    required this.onAtender,
+    this.onDarAlta, // Ya no es 'required'
+    this.onAtender, // Ya no es 'required'
   });
 
   Color _getColor(String? colorName) {
@@ -25,7 +27,6 @@ class PatientCard extends StatelessWidget {
     }
   }
 
-  // --- NUEVA FUNCIÓN: TRADUCIR COLOR A TEXTO DE PRIORIDAD ---
   String _getPrioridadText(String? colorName) {
     switch (colorName) {
       case 'Rojo': return 'Atención inmediata';
@@ -43,7 +44,6 @@ class PatientCard extends StatelessWidget {
     final estado = paciente['estado'] ?? 'Desconocido';
     final isEnEspera = estado == 'En Espera';
     
-    // Obtenemos el texto largo
     final textoPrioridad = _getPrioridadText(paciente['color']);
 
     return Card(
@@ -68,7 +68,7 @@ class PatientCard extends StatelessWidget {
               children: [
                 // --- Fila Superior: Nombre y Etiqueta de Prioridad ---
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Alineamos arriba por si el texto es largo
+                  crossAxisAlignment: CrossAxisAlignment.start, 
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
@@ -83,20 +83,20 @@ class PatientCard extends StatelessWidget {
                         maxLines: 2,
                       ),
                     ),
-                    const SizedBox(width: 8), // Espacio entre nombre y etiqueta
+                    const SizedBox(width: 8), 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
+                        color: color.withValues(alpha:0.1), // Usamos withOpacity por compatibilidad
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: color.withValues(alpha: 0.5))
+                        border: Border.all(color: color.withValues(alpha:0.5))
                       ),
                       child: Text(
-                        textoPrioridad, // USAMOS EL TEXTO LARGO AQUÍ
+                        textoPrioridad, 
                         style: TextStyle(
                           color: color, 
                           fontWeight: FontWeight.bold, 
-                          fontSize: 11 // Reduje un poco la fuente para que quepa mejor
+                          fontSize: 11 
                         ),
                       ),
                     )
@@ -179,31 +179,43 @@ class PatientCard extends StatelessWidget {
                       ],
                     ),
 
-                    SizedBox(
-                      height: 35,
-                      child: isEnEspera 
-                      ? ElevatedButton.icon(
-                          onPressed: onAtender,
-                          icon: const Icon(Icons.front_hand, size: 16),
-                          label: const Text("Atender"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[50],
-                            foregroundColor: Colors.blue[700],
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 12)
+                    // --- CAMBIO: RENDERIZADO CONDICIONAL DE BOTONES ---
+                    Row(
+                      children: [
+                        // Botón ATENDER (Solo si está en espera Y se pasó la función)
+                        if (isEnEspera && onAtender != null)
+                          SizedBox(
+                            height: 35,
+                            child: ElevatedButton.icon(
+                              onPressed: onAtender,
+                              icon: const Icon(Icons.front_hand, size: 16),
+                              label: const Text("Atender"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue[50],
+                                foregroundColor: Colors.blue[700],
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12)
+                              ),
+                            ),
                           ),
-                        )
-                      : ElevatedButton.icon(
-                          onPressed: onDarAlta,
-                          icon: const Icon(Icons.check_circle_outline, size: 16),
-                          label: const Text("Dar Alta"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green[50],
-                            foregroundColor: Colors.green[700],
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 12)
-                          ),
-                        ),
+
+                        // Botón DAR ALTA (Solo si NO está en espera Y se pasó la función)
+                        if (!isEnEspera && onDarAlta != null)
+                          SizedBox(
+                            height: 35,
+                            child: ElevatedButton.icon(
+                              onPressed: onDarAlta,
+                              icon: const Icon(Icons.check_circle_outline, size: 16),
+                              label: const Text("Finalizar"), // Cambio sutil de texto
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green[50],
+                                foregroundColor: Colors.green[700],
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12)
+                              ),
+                            ),
+                          )
+                      ],
                     )
                   ],
                 )

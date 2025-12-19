@@ -6,10 +6,7 @@ import 'auth_service.dart';
 class TriajeService {
   final AuthService _authService = AuthService();
   
-  // URL base apuntando a /api/triaje
-  // Asegúrate de que esta IP sea correcta para tu emulador/dispositivo
-  // Si usas ApiConfig en otros archivos, podrías importarlo aquí también, 
-  // pero usaremos _baseUrl para mantener la consistencia con tu código actual.
+  // URL base (Asegúrate que tu servidor backend tenga estas rutas)
   final String _baseUrl = "http://10.0.2.2:3000/api/triaje"; 
 
   // 1. Crear Triaje
@@ -42,7 +39,6 @@ class TriajeService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        // Retornamos 'data' para obtener el ID en el frontend
         return {'success': true, 'message': data['message'], 'data': data['data']};
       } else {
         return {'success': false, 'message': data['message'] ?? 'Error al guardar triaje'};
@@ -52,7 +48,7 @@ class TriajeService {
     }
   }
 
-  // 2. Obtener lista de pacientes activos en urgencias
+  // 2. Obtener lista de pacientes activos (Para Residentes)
   Future<List<dynamic>> getTriajesActivos() async {
     final token = await _authService.getToken();
     if (token == null) return [];
@@ -77,7 +73,7 @@ class TriajeService {
     }
   }
 
-  // 3. Cambiar estado (ej: Dar de Alta)
+  // 3. Cambiar estado (Genérico - Usado por Residentes)
   Future<bool> cambiarEstado(int idTriaje, String nuevoEstado) async {
     final token = await _authService.getToken();
     if (token == null) return false;
@@ -99,38 +95,34 @@ class TriajeService {
     }
   }
 
-  // 4. Atender paciente
-  Future<bool> atenderPaciente(int idTriaje, String nombreResidente) async {
+  // 4. Atender Paciente
+  Future<bool> atenderPaciente(int idTriaje, String? nuevaUbicacion) async {
     final token = await _authService.getToken();
-    if (token == null) return false;
+    
+    final nombreResidente = await _authService.getNombreCompleto(); 
+    final url = Uri.parse('$_baseUrl/atender/$idTriaje');
 
     try {
-      final url = Uri.parse('$_baseUrl/$idTriaje/atender');
-      
       final response = await http.put(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'x-access-token': token,
+          'x-access-token': token ?? ''
         },
         body: jsonEncode({
-          'nombre_residente': nombreResidente 
+          'nombre_residente': nombreResidente,
+          'nueva_ubicacion': nuevaUbicacion, 
         }),
       );
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        debugPrint("Error al atender: ${response.body}");
-        return false;
-      }
+      return response.statusCode == 200;
     } catch (e) {
-      debugPrint("Error de conexión: $e");
+      debugPrint("Error atendiendo: $e");
       return false;
     }
   }
 
-  // 5. Método para actualizar un triaje existente
+  // 5. Actualizar triaje existente
   Future<Map<String, dynamic>> updateTriaje(int idTriaje, Map<String, dynamic> datos) async {
     final token = await _authService.getToken();
     final url = Uri.parse('$_baseUrl/$idTriaje'); 
@@ -164,4 +156,60 @@ class TriajeService {
     }
   }
 
-} // <--- FIN DE LA CLASE TRIAJESERVICE (No debe haber código después de esto)
+  // 6. Obtener lista de pacientes referidos (Para el Especialista)
+  Future<List<dynamic>> getPacientesReferidos() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http.get(
+        Uri.parse("$_baseUrl/referidos"), 
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body); 
+      } else {
+        return [];
+      }
+    } catch (e) {
+      debugPrint("Error obteniendo referidos: $e");
+      return [];
+    }
+  }
+
+  // 7. [NUEVO] Finalizar Caso Especialista (Alta o Fallecido)
+  Future<bool> finalizarCasoEspecialista(int idTriaje, String motivo) async {
+    final token = await _authService.getToken();
+    if (token == null) return false;
+
+    // Esta URL debe coincidir con la ruta definida en el backend: router.put('/finalizar/:id', ...)
+    final url = Uri.parse("$_baseUrl/finalizar/$idTriaje");
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: jsonEncode({
+          'motivo': motivo, // 'Alta' o 'Fallecido'
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint('Error del servidor: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Error de conexión al finalizar especialista: $e");
+      return false;
+    }
+  }
+}
