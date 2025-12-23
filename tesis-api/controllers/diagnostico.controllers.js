@@ -7,21 +7,26 @@ const AntecedentesPersonales = db.AntecedentesPersonales;
 const Carpeta = db.Carpeta; 
 const { Op } = require("sequelize"); 
 
-// Crear Diagnóstico y Órdenes Médicas
+// ==========================================
+// 1. Crear Diagnóstico y Órdenes Médicas
+// ==========================================
 exports.createDiagnostico = async (req, res) => {
-    console.log("Intentando crear Diagnóstico...");
+    // LOG DE DEPURACIÓN: Verifica esto en tu terminal negra
+    console.log("--- Recibiendo petición para crear Diagnóstico ---");
+    console.log("Cuerpo de la petición:", req.body);
+
     const { 
         cedula_paciente, 
         descripcion, 
         tipo, 
         observaciones,
         // Campos para Órdenes Médicas
+        id_medicamento, // <--- Extracción corregida
         indicaciones_inmediatas,
         tratamientos_sugeridos,
         requerimiento_medicamentos,
         examenes_complementarios,
         conducta_seguir,
-        // Datos del médico (Opcional)
         id_usuario,
         atendido_por
     } = req.body;
@@ -31,28 +36,20 @@ exports.createDiagnostico = async (req, res) => {
     }
 
     try {
-        // --- 1. VALIDACIÓN DE PRERREQUISITOS CLÍNICOS ---
-        
+        // --- VALIDACIÓN DE PRERREQUISITOS ---
         const tieneMotivo = await MotivoConsulta.findOne({ where: { cedula_paciente } });
-        if (!tieneMotivo) {
-            return res.status(403).send({ message: "BLOQUEO: Paciente sin Motivo de Consulta. Debe registrarlo primero." });
-        }
+        if (!tieneMotivo) return res.status(403).send({ message: "BLOQUEO: Paciente sin Motivo de Consulta." });
 
         const tieneExamen = await ExamenFisico.findOne({ where: { cedula_paciente } });
-        if (!tieneExamen) {
-            return res.status(403).send({ message: "BLOQUEO: Paciente sin Examen Físico. Debe realizarlo primero." });
-        }
+        if (!tieneExamen) return res.status(403).send({ message: "BLOQUEO: Paciente sin Examen Físico." });
 
         const tieneAntecedentes = await AntecedentesPersonales.findOne({ where: { cedula_paciente } });
-        if (!tieneAntecedentes) {
-            return res.status(403).send({ message: "BLOQUEO: Paciente sin Antecedentes. Debe interrogarlos primero." });
-        }
+        if (!tieneAntecedentes) return res.status(403).send({ message: "BLOQUEO: Paciente sin Antecedentes." });
 
-        // --- 2. LÓGICA DE CARPETA INTELIGENTE ---
+        // --- LÓGICA DE CARPETA ---
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        // Buscar la ÚLTIMA carpeta de hoy
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
@@ -61,11 +58,8 @@ exports.createDiagnostico = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
-        let carpeta;
-
-        // Si no existe O si la última ya está de Alta -> Crear Nueva
+        let carpeta = ultimaCarpeta;
         if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
-            console.log(`📂 Creando carpeta automática (Diagnóstico) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
                 fecha_creacion: new Date(),
@@ -73,12 +67,9 @@ exports.createDiagnostico = async (req, res) => {
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
-        } else {
-            // Usar la existente abierta
-            carpeta = ultimaCarpeta;
         }
 
-        // --- 3. CREAR DIAGNÓSTICO ---
+        // --- CREAR DIAGNÓSTICO ---
         const nuevoDiagnostico = await Diagnostico.create({
             cedula_paciente,
             descripcion,
@@ -87,12 +78,16 @@ exports.createDiagnostico = async (req, res) => {
             id_carpeta: carpeta.id_carpeta 
         });
 
-        // --- 4. CREAR ÓRDENES MÉDICAS ---
+        // --- CREAR ÓRDENES MÉDICAS (Con ID de Medicamento) ---
         let ordenCreada = null;
-        
         if (indicaciones_inmediatas || tratamientos_sugeridos || requerimiento_medicamentos || examenes_complementarios || conducta_seguir) {
+            
+            console.log(`-> Guardando Orden con ID Medicamento: ${id_medicamento}`);
+
             ordenCreada = await OrdenesMedicas.create({
                 cedula_paciente, 
+                // Aseguramos que sea número o null
+                id_medicamento: (id_medicamento && id_medicamento !== 0) ? Number(id_medicamento) : null,
                 indicaciones_inmediatas,
                 tratamientos_sugeridos,
                 requerimiento_medicamentos,
@@ -102,13 +97,8 @@ exports.createDiagnostico = async (req, res) => {
                 id_carpeta: carpeta.id_carpeta 
             });
 
-            // --- LÓGICA DE CIERRE AUTOMÁTICO POR ALTA EN LA CONDUCTA ---
             if (conducta_seguir && conducta_seguir.toLowerCase().includes('alta')) {
-                console.log(`🔒 Cerrando carpeta ID ${carpeta.id_carpeta} por Alta Médica en conducta...`);
-                await Carpeta.update(
-                    { estatus: 'Alta' },
-                    { where: { id_carpeta: carpeta.id_carpeta } }
-                );
+                await Carpeta.update({ estatus: 'Alta' }, { where: { id_carpeta: carpeta.id_carpeta } });
             }
         }
 
@@ -121,85 +111,72 @@ exports.createDiagnostico = async (req, res) => {
 
     } catch (error) {
         console.error("Error en createDiagnostico:", error);
-        res.status(500).send({ message: error.message || 'Error interno al procesar el diagnóstico.' });
-    }
-};
-
-// Obtener diagnósticos de un paciente
-exports.getDiagnosticosByPaciente = async (req, res) => {
-    try {
-        const { cedula } = req.params;
-        
-        const diagnosticos = await Diagnostico.findAll({ 
-            where: { cedula_paciente: cedula },
-            order: [['createdAt', 'DESC']] 
-        });
-        res.status(200).send(diagnosticos);
-    } catch (error) {
-        res.status(500).send({ message: 'Error al obtener historial.' });
+        res.status(500).send({ message: error.message });
     }
 };
 
 // ==========================================
-// NUEVA FUNCIÓN DE ACTUALIZACIÓN (PUT)
+// 2. Actualizar Diagnóstico y Órdenes (PUT)
 // ==========================================
 exports.updateDiagnostico = async (req, res) => {
+    console.log("--- Recibiendo petición para ACTUALIZAR Diagnóstico ---");
     try {
         const { id } = req.params; 
         const { 
             descripcion, tipo, observaciones, 
             id_orden, 
+            id_medicamento, // <--- CORRECCIÓN: Extracción agregada
             indicaciones_inmediatas, tratamientos_sugeridos, 
             requerimiento_medicamentos, examenes_complementarios, conducta_seguir 
         } = req.body;
 
-        // 1. ACTUALIZAR DIAGNÓSTICO
+        // 1. Actualizar Diagnóstico
         const diagnostico = await Diagnostico.findByPk(id);
-        if (!diagnostico) return res.status(404).send({ success: false, message: "Diagnóstico no encontrado." });
+        if (!diagnostico) return res.status(404).send({ success: false, message: "No encontrado." });
 
         diagnostico.descripcion = descripcion;
         diagnostico.tipo = tipo;
         diagnostico.observaciones = observaciones;
         await diagnostico.save();
 
-        // 2. ACTUALIZAR ÓRDENES MÉDICAS
+        // 2. Actualizar Órdenes Médicas
         let ordenActualizada = null;
         if (id_orden) {
             const orden = await OrdenesMedicas.findByPk(id_orden);
             if (orden) {
+                console.log(`-> Actualizando Orden ${id_orden} con ID Medicamento: ${id_medicamento}`);
+                
+                // CORRECCIÓN: Guardar el ID del medicamento
+                orden.id_medicamento = (id_medicamento && id_medicamento !== 0) ? Number(id_medicamento) : null;
                 orden.indicaciones_inmediatas = indicaciones_inmediatas;
                 orden.tratamientos_sugeridos = tratamientos_sugeridos;
                 orden.requerimiento_medicamentos = requerimiento_medicamentos;
                 orden.examenes_complementarios = examenes_complementarios;
                 orden.conducta_seguir = conducta_seguir;
+                
                 await orden.save();
                 ordenActualizada = orden;
 
-                // --- LÓGICA DE CIERRE AUTOMÁTICO (TAMBIÉN AL ACTUALIZAR) ---
                 if (conducta_seguir && conducta_seguir.toLowerCase().includes('alta')) {
-                    console.log(`🔒 Cerrando carpeta ID ${orden.id_carpeta} por Alta Médica en actualización...`);
-                    await Carpeta.update(
-                        { estatus: 'Alta' },
-                        { where: { id_carpeta: orden.id_carpeta } }
-                    );
+                    await Carpeta.update({ estatus: 'Alta' }, { where: { id_carpeta: orden.id_carpeta } });
                 }
             }
         }
 
         res.status(200).send({ 
             success: true, 
-            message: "Diagnóstico y órdenes actualizados.", 
+            message: "Datos actualizados correctamente.", 
             data: { diagnostico, orden: ordenActualizada }
         });
 
     } catch (error) {
         console.error("Error updateDiagnostico:", error);
-        res.status(500).send({ message: "Error interno: " + error.message });
+        res.status(500).send({ message: error.message });
     }
 };
 
 // ==========================================
-// Obtener Diagnóstico y Órdenes de HOY
+// 3. Obtener Diagnóstico y Órdenes de HOY
 // ==========================================
 exports.getDiagnosticoHoy = async (req, res) => {
     try {
@@ -207,29 +184,15 @@ exports.getDiagnosticoHoy = async (req, res) => {
         const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
         const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        // 1. Buscar la ÚLTIMA carpeta de hoy
         const carpeta = await Carpeta.findOne({
             where: { cedula_paciente: cedula, createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia } },
-            order: [['createdAt', 'DESC']] // Importante: La más reciente
+            order: [['createdAt', 'DESC']]
         });
 
-        // Caso A: No existe carpeta
-        if (!carpeta) {
+        if (!carpeta || carpeta.estatus === 'Alta') {
             return res.status(200).send({ success: true, data: { diagnostico: null, orden: null } });
         }
 
-        // --- CORRECCIÓN CLAVE AQUÍ ---
-        // Caso B: Existe carpeta, pero está de 'Alta'.
-        // Devolvemos NULL para que el médico pueda crear una nueva orden/diagnóstico.
-        if (carpeta.estatus === 'Alta') {
-            return res.status(200).send({ 
-                success: true, 
-                data: { diagnostico: null, orden: null } 
-            });
-        }
-        // -----------------------------
-
-        // 2. Buscar datos (Solo si la carpeta está ABIERTA)
         const diagnostico = await Diagnostico.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
         const orden = await OrdenesMedicas.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
 
@@ -239,7 +202,22 @@ exports.getDiagnosticoHoy = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
         res.status(500).send({ message: "Error al obtener diagnóstico." });
+    }
+};
+
+// ==========================================
+// 4. Historial (Opcional)
+// ==========================================
+exports.getDiagnosticosByPaciente = async (req, res) => {
+    try {
+        const { cedula } = req.params;
+        const diagnosticos = await Diagnostico.findAll({ 
+            where: { cedula_paciente: cedula },
+            order: [['createdAt', 'DESC']] 
+        });
+        res.status(200).send(diagnosticos);
+    } catch (error) {
+        res.status(500).send({ message: 'Error al obtener historial.' });
     }
 };

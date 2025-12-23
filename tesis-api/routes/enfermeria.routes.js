@@ -12,4 +12,6 @@ router.post('/solicitar', [verifyToken], enfermeriaController.solicitarMedicamen
 
 router.put('/ordenes/:id_orden', [verifyToken], enfermeriaController.actualizarEstatusOrden);
 
+router.get('/orden-activa/:cedula', [verifyToken], enfermeriaController.getMedicamentoAutorizado);
+
 module.exports = router;

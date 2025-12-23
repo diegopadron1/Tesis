@@ -68,7 +68,7 @@ class _NurseHomeScreenState extends State<NurseHomeScreen> with SingleTickerProv
   }
 }
 
-// --- TAB 1: GESTIÓN DE ÓRDENES ---
+// --- TAB 1: GESTIÓN DE ÓRDENES (DISEÑO MEJORADO) ---
 class OrdenesPendientesTab extends StatefulWidget {
   final bool allowActions; 
 
@@ -150,36 +150,54 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
             itemBuilder: (ctx, i) {
               final orden = list[i];
               final paciente = orden['Paciente'] ?? {};
+              final medInfo = orden['medicamento'] ?? {}; // Datos del fármaco traídos por el include
               
-              // --- CORRECCIÓN DEFINITIVA ---
-              // Usamos directamente 'nombre_apellido'
               final nombreCompleto = paciente['nombre_apellido'] ?? 'Desconocido';
+              final nombreFarma = medInfo['nombre'] ?? 'Sin fármaco asignado';
+              final concentracion = medInfo['concentracion'] ?? '';
 
               return Card(
-                elevation: 3,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 child: ExpansionTile(
-                  initiallyExpanded: widget.allowActions, 
-                  leading: const CircleAvatar(backgroundColor: Color.fromARGB(255, 14, 82, 1), child: Icon(Icons.assignment, color: Colors.white)),
-                  title: Text(nombreCompleto, style: const TextStyle(fontWeight: FontWeight.bold)), // Mostramos nombre_apellido
-                  subtitle: Text("C.I: ${orden['cedula_paciente']} • Orden #${orden['id_orden']}"),
+                  initiallyExpanded: false, 
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.blue, 
+                    child: Icon(Icons.medication, color: Colors.white)
+                  ),
+                  title: Text(
+                    nombreFarma, 
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.blue),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Paciente: $nombreCompleto", style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Dosis: ${orden['requerimiento_medicamentos']}", 
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.pink)
+                      ),
+                    ],
+                  ),
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
                       width: double.infinity,
-                      color: Colors.pink[50],
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(15), bottomRight: Radius.circular(15))
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _infoRow("Indicaciones:", orden['indicaciones_inmediatas']),
-                          _infoRow("Medicamentos:", orden['requerimiento_medicamentos']),
-                          _infoRow("Tratamientos:", orden['tratamientos_sugeridos']),
-                          
+                          _infoRow("C.I. Paciente:", orden['cedula_paciente']),
+                          _infoRow("Concentración:", concentracion),
+                          _infoRow("Indicaciones Inmediatas:", orden['indicaciones_inmediatas']),
+                          _infoRow("Tratamientos Sugeridos:", orden['tratamientos_sugeridos']),
+                          const Divider(),
                           if (widget.allowActions) ...[
-                            const SizedBox(height: 15),
-                            const Divider(),
-                            const Text("Acciones:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.pink)),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -188,21 +206,22 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
                                   onPressed: () => _actualizarOrden(orden['id_orden'], 'NO_REALIZADA'),
                                   icon: const Icon(Icons.cancel, size: 18),
                                   label: const Text("No Realizado"),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red[100], foregroundColor: Colors.red[900]),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white, 
+                                    foregroundColor: Colors.red[900],
+                                    side: BorderSide(color: Colors.red[900]!)
+                                  ),
                                 ),
                                 ElevatedButton.icon(
                                   onPressed: () => _actualizarOrden(orden['id_orden'], 'COMPLETADA'),
                                   icon: const Icon(Icons.check_circle, size: 18),
                                   label: const Text("Confirmar"),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green[700], 
+                                    foregroundColor: Colors.white
+                                  ),
                                 ),
                               ],
-                            )
-                          ] else ...[
-                            const SizedBox(height: 10),
-                            const Align(
-                                alignment: Alignment.centerRight,
-                                child: Text("Ir a Módulo de Enfermería para gestionar", style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12, color: Colors.grey))
                             )
                           ]
                         ],
@@ -221,8 +240,16 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
   Widget _infoRow(String label, String? value) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Text("$label $value", style: const TextStyle(fontSize: 14)),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          children: [
+            TextSpan(text: "$label ", style: const TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -243,7 +270,10 @@ class _SolicitudMedicamentoTabState extends State<SolicitudMedicamentoTab> {
   
   Medicamento? _selectedMedicamento;
   List<Medicamento> _listaMedicamentos = [];
+  Key _dropdownKey = UniqueKey();
+  
   bool _isLoading = false;
+  bool _isSearchingOrder = false;
 
   @override
   void initState() {
@@ -254,6 +284,38 @@ class _SolicitudMedicamentoTabState extends State<SolicitudMedicamentoTab> {
   void _cargarMedicamentos() async {
     final lista = await _service.getListaMedicamentos();
     if (mounted) setState(() => _listaMedicamentos = lista);
+  }
+
+  void _buscarOrdenAutomatica(String cedula) async {
+    if (cedula.length < 7) return; 
+
+    setState(() => _isSearchingOrder = true);
+    final data = await _service.getMedicamentoAutorizado(cedula);
+
+    if (data != null && mounted) {
+      try {
+        final medEncontrado = _listaMedicamentos.firstWhere(
+          (m) => m.idMedicamento == data['id_medicamento']
+        );
+
+        setState(() {
+          _selectedMedicamento = medEncontrado;
+          _dropdownKey = UniqueKey(); 
+          _isSearchingOrder = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Orden detectada: ${data['nombre']}. Dosis: ${data['dosis_recetada']}"),
+            backgroundColor: Colors.blue[700],
+          )
+        );
+      } catch (e) {
+        setState(() => _isSearchingOrder = false);
+      }
+    } else {
+      if(mounted) setState(() => _isSearchingOrder = false);
+    }
   }
 
   void _enviarSolicitud() async {
@@ -280,7 +342,10 @@ class _SolicitudMedicamentoTabState extends State<SolicitudMedicamentoTab> {
       if (res['success']) {
         _cedulaCtrl.clear();
         _cantidadCtrl.clear();
-        setState(() => _selectedMedicamento = null);
+        setState(() {
+          _selectedMedicamento = null;
+          _dropdownKey = UniqueKey();
+        });
         _cargarMedicamentos(); 
       }
     }
@@ -299,16 +364,28 @@ class _SolicitudMedicamentoTabState extends State<SolicitudMedicamentoTab> {
             TextFormField(
               controller: _cedulaCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Cédula del Paciente", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+              decoration: InputDecoration(
+                labelText: "Cédula del Paciente", 
+                border: const OutlineInputBorder(), 
+                prefixIcon: const Icon(Icons.person),
+                suffixIcon: _isSearchingOrder 
+                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)))
+                  : const Icon(Icons.search),
+              ),
+              onChanged: (value) => _buscarOrdenAutomatica(value),
               validator: (v) => v!.isEmpty ? "Requerido" : null,
             ),
             const SizedBox(height: 15),
             DropdownButtonFormField<Medicamento>(
-              initialValue: _selectedMedicamento,
+              key: _dropdownKey,
+              initialValue: _selectedMedicamento, 
               isExpanded: true,
               decoration: const InputDecoration(labelText: "Medicamento", border: OutlineInputBorder(), prefixIcon: Icon(Icons.medication)),
               items: _listaMedicamentos.map((med) {
-                return DropdownMenuItem(value: med, child: Text("${med.nombre} (${med.cantidadDisponible})", overflow: TextOverflow.ellipsis));
+                return DropdownMenuItem(
+                  value: med, 
+                  child: Text("${med.nombre} (${med.cantidadDisponible})", overflow: TextOverflow.ellipsis)
+                );
               }).toList(),
               onChanged: (val) => setState(() => _selectedMedicamento = val),
               validator: (v) => v == null ? "Seleccione un medicamento" : null,

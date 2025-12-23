@@ -135,6 +135,30 @@ if (db.Paciente && db.Carpeta) {
 
     db.Carpeta.hasOne(db.HabitosPsicobiologicos, { foreignKey: 'id_carpeta' });
     db.HabitosPsicobiologicos.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
+
+    // ==========================================
+    // 6. RELACIONES DE FARMACIA Y ÓRDENES (NUEVAS)
+    // ==========================================
+    
+    db.OrdenesMedicas.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente', targetKey: 'cedula' });
+    db.Paciente.hasMany(db.OrdenesMedicas, { foreignKey: 'cedula_paciente', sourceKey: 'cedula' });
+
+    // Vincular Órdenes con Medicamentos (Para ver el nombre del fármaco recetado)
+    db.OrdenesMedicas.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento', as: 'medicamento' });
+    db.Medicamento.hasMany(db.OrdenesMedicas, { foreignKey: 'id_medicamento' });
+    // -----------------------------------------------------------------------------
+
+    // Vincular Órdenes con Solicitudes para trazabilidad
+    if (db.OrdenesMedicas && db.SolicitudMedicamento) {
+        db.OrdenesMedicas.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_orden', as: 'solicitudes' });
+        db.SolicitudMedicamento.belongsTo(db.OrdenesMedicas, { foreignKey: 'id_orden' });
+    }
+
+    // Vincular Solicitudes con el Inventario para saber qué se pidió
+    if (db.SolicitudMedicamento && db.Medicamento) {
+        db.SolicitudMedicamento.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento', as: 'medicamento' });
+        db.Medicamento.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_medicamento' });
+    }
 }
 
 module.exports = db;

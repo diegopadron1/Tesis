@@ -27,6 +27,7 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
   }
 
   Future<void> _verificarPermisos() async {
+    // Nota: Aquí deberías usar tu lógica real de roles
     String rolUsuarioLogueado = "ESPECIALISTA"; 
     if (rolUsuarioLogueado != "ESPECIALISTA") {
       if (!mounted) return;
@@ -58,7 +59,6 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
 
       List<Map<String, dynamic>> listaTemporal = [];
 
-      // Extraemos la lista plana de Motivos que generó el backend
       var motivosRaw = data['MotivoConsultas'] ?? [];
 
       if (motivosRaw is List) {
@@ -67,7 +67,6 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
         }
       }
 
-      // Ordenar por fecha descendente
       listaTemporal.sort((a, b) {
         String fechaA = a['createdAt'] ?? a['fecha'] ?? '';
         String fechaB = b['createdAt'] ?? b['fecha'] ?? '';
@@ -101,7 +100,6 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
   }
 
   void _verDetalleHistorial(Map<String, dynamic> motivoSeleccionado) {
-    // Aquí es donde ocurre la magia: Pasamos el motivo que TIENE el id_carpeta
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -116,6 +114,7 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mostramos las visitas encontradas
     final listaMostrar = _listaVisitas.take(3).toList();
 
     return Scaffold(
@@ -205,7 +204,7 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// PANTALLA DE DETALLE (LÓGICA EXACTA POR ID_CARPETA)
+// PANTALLA DE DETALLE (LECTURA PROFESIONAL)
 // ---------------------------------------------------------------------------
 class DetalleHistorialReadOnlyScreen extends StatelessWidget {
   final Map<String, dynamic> pacienteDataFull;
@@ -219,11 +218,9 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
     required this.fechaTitulo,
   });
 
-  // HELPER MAESTRO: Busca por coincidencia exacta de 'id_carpeta'
   Map<String, dynamic> _extraerDataPorCarpeta(List<String> keysPosibles) {
     dynamic rawData;
     
-    // 1. Obtener la lista cruda
     for (var key in keysPosibles) {
       if (pacienteDataFull.containsKey(key) && pacienteDataFull[key] != null) {
         rawData = pacienteDataFull[key];
@@ -232,14 +229,10 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
     }
 
     if (rawData == null) return {};
-    
-    // 2. Si es mapa (datos únicos como datos personales), devolverlo directo
     if (rawData is Map) return Map<String, dynamic>.from(rawData);
 
-    // 3. Lógica de "CARPETA EXACTA"
-    // Buscamos el registro que tenga el MISMO id_carpeta que el motivo seleccionado
     if (rawData is List && rawData.isNotEmpty) {
-      final targetId = motivoEspecifico['id_carpeta']; // El ID mágico que une todo
+      final targetId = motivoEspecifico['id_carpeta']; 
 
       if (targetId != null) {
         var coincidencia = rawData.firstWhere(
@@ -252,14 +245,10 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
         }
       }
       
-      // NOTA: Para Antecedentes, si no hay uno específico en esta carpeta (porque quizás no se editaron ese día),
-      // es seguro mostrar el último registrado para que el médico tenga contexto.
       if (keysPosibles.first.contains('Antecedentes') || keysPosibles.first.contains('Habitos')) {
-         // Tomamos el primero porque la lista viene ordenada DESC (el más reciente)
          return Map<String, dynamic>.from(rawData.first);
       }
 
-      // Para Diagnósticos o Exámenes, si no es de esta carpeta, mejor devolver vacío
       return {}; 
     }
 
@@ -290,8 +279,8 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
           _SeccionLectura(
             titulo: "Contacto de Emergencia",
             icon: Icons.contact_phone,
-            data: _extraerDataPorCarpeta(['ContactoEmergencia', 'ContactoEmergencias']),
-            campos: const {'nombre_apellido': 'Nombre', 'parentesco': 'Parentesco', 'telefono': 'Teléfono'},
+            data: _extraerDataPorCarpeta(['ContactoEmergencium', 'ContactoEmergencia', 'ContactoEmergencias']),
+            campos: const {'nombre_apellido': 'Nombre', 'parentesco': 'Parentesco', 'cedula_contacto': 'Cedula', 'telefono': 'Telefono'},
           ),
 
           _SeccionLectura(
@@ -344,7 +333,7 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
             campos: const {'cafe': 'Café', 'tabaco': 'Tabaco', 'alcohol': 'Alcohol', 'sueño': 'Sueño'},
           ),
 
-          // Órdenes Médicas: Filtrar por id_carpeta también
+          // ÓRDENES MÉDICAS: Con el nuevo diseño profesional
           _OrdenesMedicasLectura(
             ordenes: (pacienteDataFull['OrdenesMedicas'] as List? ?? [])
               .where((o) => o['id_carpeta'] == motivoEspecifico['id_carpeta'])
@@ -445,6 +434,7 @@ class _SeccionLectura extends StatelessWidget {
   }
 }
 
+// --- TAB: ÓRDENES MÉDICAS (NUEVO DISEÑO COHERENTE) ---
 class _OrdenesMedicasLectura extends StatelessWidget {
   final List<dynamic> ordenes;
   const _OrdenesMedicasLectura({required this.ordenes});
@@ -454,23 +444,73 @@ class _OrdenesMedicasLectura extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         leading: const Icon(Icons.assignment, color: Colors.teal),
         title: const Text("Órdenes Médicas", style: TextStyle(fontWeight: FontWeight.bold)),
         children: [
-          if (ordenes.isEmpty) const Padding(padding: EdgeInsets.all(15), child: Text("No hubo órdenes.")),
+          if (ordenes.isEmpty) 
+            const Padding(
+                padding: EdgeInsets.all(20), 
+                child: Text("No se registraron órdenes en esta visita.", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey))),
+          
           ...ordenes.map((orden) {
-            return Column(
-              children: [
-                ListTile(
-                  title: Text("Orden #${orden['id_orden']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Med: ${orden['requerimiento_medicamentos']}\nInd: ${orden['indicaciones_inmediatas'] ?? 'Ninguna'}"),
-                  trailing: Chip(label: Text(orden['estatus'] ?? 'N/A', style: const TextStyle(fontSize: 10, color: Colors.white)), backgroundColor: (orden['estatus'] == 'PENDIENTE') ? Colors.orange : Colors.green),
+            final esPendiente = orden['estatus'] == 'PENDIENTE';
+            final medInfo = orden['medicamento'] ?? {}; 
+            final nombreFarma = medInfo['nombre'] ?? 'Medicamento no vinculado';
+            
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: esPendiente ? Colors.orange[50] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: esPendiente ? Colors.orange[200]! : Colors.grey[300]!),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                title: Text(
+                  nombreFarma.toUpperCase(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    color: esPendiente ? Colors.teal[800] : Colors.grey[700],
+                    fontSize: 15
+                  ),
                 ),
-                const Divider(),
-              ],
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Colors.black87, fontSize: 13),
+                        children: [
+                          const TextSpan(text: "Dosis: ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.pink)),
+                          TextSpan(text: "${orden['requerimiento_medicamentos']}"),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text("Indicaciones: ${orden['indicaciones_inmediatas'] ?? 'Ninguna'}",
+                        style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 6),
+                    // Badge de estatus
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: esPendiente ? Colors.orange : Colors.green[700],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        orden['estatus'] ?? 'N/A',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             );
-          })
+          }), // Ya no requiere .toList() por el spread operator (...) superior
+          const SizedBox(height: 10),
         ],
       ),
     );

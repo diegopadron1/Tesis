@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import 'auth_service.dart';
 import '../models/medicamento.dart';
+import 'package:flutter/foundation.dart';
 
 class EnfermeriaService {
   final AuthService _authService = AuthService();
@@ -33,13 +34,18 @@ class EnfermeriaService {
     }
   }
 
-  // 2. Obtener Lista de Medicamentos
-  Future<List<Medicamento>> getListaMedicamentos() async {
+  // 2. Obtener Lista de Medicamentos (Con soporte para búsqueda)
+  Future<List<Medicamento>> getListaMedicamentos({String? query}) async {
     final headers = await _getHeaders();
     if (headers == null) throw Exception('Sin sesión');
 
     try {
-      final response = await http.get(Uri.parse(ApiConfig.farmaciaInventarioUrl), headers: headers);
+      Uri url = Uri.parse(ApiConfig.farmaciaInventarioUrl);
+      if (query != null && query.isNotEmpty) {
+        url = url.replace(queryParameters: {'q': query});
+      }
+
+      final response = await http.get(url, headers: headers);
       if (response.statusCode == 200) {
         final List<dynamic> body = jsonDecode(response.body);
         return body.map((e) => Medicamento.fromJson(e)).toList();
@@ -47,6 +53,7 @@ class EnfermeriaService {
         return [];
       }
     } catch (e) {
+      debugPrint("Error en getListaMedicamentos: $e");
       return [];
     }
   }
@@ -83,7 +90,7 @@ class EnfermeriaService {
     }
   }
 
-  // 4. NUEVO: Actualizar Estatus de Orden
+  // 4. Actualizar Estatus de Orden
   Future<Map<String, dynamic>> actualizarOrden(
       int idOrden, String estatus, String observaciones) async {
     
@@ -91,11 +98,6 @@ class EnfermeriaService {
     if (headers == null) return {'success': false, 'message': 'Sin sesión'};
 
     try {
-      // Endpoint: /api/enfermeria/ordenes/:id
-      // Construimos la URL reemplazando el ID
-      // Nota: Asumimos que la URL base en ApiConfig termina en /api
-      // La ruta definida es /enfermeria/ordenes/:id_orden
-      // Ajuste manual de URL:
       final url = "${ApiConfig.enfermeriaOrdenesUrl.replaceAll('/pendientes', '')}/$idOrden";
       
       final response = await http.put(
@@ -103,7 +105,8 @@ class EnfermeriaService {
         headers: headers,
         body: jsonEncode({
           'estatus': estatus,
-          'observaciones': observaciones
+          'observaciones': observaciones,
+          'id_usuario': await _authService.getCedulaUsuario() // Enviamos quién actualiza para la reversión
         }),
       );
 
@@ -115,6 +118,27 @@ class EnfermeriaService {
       }
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  // 5. NUEVO: Obtener medicamento autorizado de la orden activa
+  Future<Map<String, dynamic>?> getMedicamentoAutorizado(String cedula) async {
+    final headers = await _getHeaders();
+    if (headers == null) return null;
+
+    try {
+      // Construimos la URL basándonos en la estructura de tus otros endpoints
+      final url = Uri.parse("${ApiConfig.baseUrl}/enfermeria/orden-activa/$cedula");
+      
+      final response = await http.get(url, headers: headers);
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null; // Si no hay orden o hay error, devolvemos null
+    } catch (e) {
+      debugPrint("Error en getMedicamentoAutorizado: $e");
+      return null;
     }
   }
 }

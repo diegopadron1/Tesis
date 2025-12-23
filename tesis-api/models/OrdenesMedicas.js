@@ -21,6 +21,14 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'id_carpeta'
             }
         },
+        id_medicamento: {
+            type: DataTypes.INTEGER,
+            allowNull: true, // Se permite null si la orden no requiere fármacos (ej. solo reposo)
+            references: {
+                model: 'Medicamentos',
+                key: 'id_medicamento'
+            }
+        },
         // --- Campos del Médico ---
         indicaciones_inmediatas: { type: DataTypes.TEXT },
         tratamientos_sugeridos: { type: DataTypes.TEXT },

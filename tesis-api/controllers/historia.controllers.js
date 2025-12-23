@@ -74,7 +74,13 @@ exports.getHistoriaClinica = async (req, res) => {
                         { model: AntecedentesFamiliares },
                         { model: AntecedentesHabitos },
                         { model: Diagnostico },
-                        { model: OrdenesMedicas }
+                        { model: OrdenesMedicas,
+                          include: [{
+                            model: db.Medicamento,
+                            as: 'medicamento',
+                            attributes: ['nombre', 'concentracion']
+                         }]
+                        }
                     ]
                 }
             ],

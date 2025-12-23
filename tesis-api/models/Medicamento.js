@@ -31,7 +31,13 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         tableName: 'Medicamentos',
-        timestamps: false
+        timestamps: false,
+        indexes: [
+            {
+                unique: true,
+                fields: ['nombre', 'concentracion', 'fecha_vencimiento']
+            }
+        ]
     });
 
     return Medicamento;

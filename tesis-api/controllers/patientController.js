@@ -82,7 +82,7 @@ exports.registerPatient = async (req, res) => {
             fecha_nacimiento: paciente.fecha_nacimiento,
             lugar_nacimiento: paciente.lugar_nacimiento,
             direccion_actual: paciente.direccion_actual,
-            Estado_civil: paciente.estadoCivil || paciente.Estado_civil, // Soporte para ambos formatos
+            Estado_civil: paciente.Estado_civil || paciente.estado_civil || paciente.estadoCivil,
             Religion: paciente.religion || paciente.Religion
         }, { transaction });
         

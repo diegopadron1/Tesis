@@ -1,15 +1,32 @@
 const db = require('../models');
 const Medicamento = db.Medicamento;
 const MovimientoInventario = db.MovimientoInventario;
+const { Op } = require("sequelize");
 
 // 1. Ver inventario
 exports.getMedicamentos = async (req, res) => {
     try {
+        const { q } = req.query; // Capturamos el parámetro ?q= de la URL
+        let whereClause = {};
+
+        // Si el médico escribe algo, filtramos por nombre o principio activo
+        if (q) {
+            whereClause = {
+                [Op.or]: [
+                    { nombre: { [Op.iLike]: `%${q}%` } },
+                    { principio_activo: { [Op.iLike]: `%${q}%` } }
+                ]
+            };
+        }
+
         const medicamentos = await Medicamento.findAll({
+            where: whereClause,
             order: [['nombre', 'ASC']]
         });
+        
         res.status(200).send(medicamentos);
     } catch (error) {
+        console.error("Error en getMedicamentos:", error);
         res.status(500).send({ message: "Error al obtener inventario." });
     }
 };
@@ -23,9 +40,26 @@ exports.crearMedicamento = async (req, res) => {
             return res.status(400).send({ message: "El nombre es obligatorio." });
         }
 
-        // Validación: Si la fecha viene vacía, la convertimos a NULL para que PostgreSQL no falle
+        // 1. Normalización de la fecha para la búsqueda
         const fechaFinal = (fecha_vencimiento && fecha_vencimiento !== "") ? fecha_vencimiento : null;
 
+        // 2. Verificación de duplicados (Lógica de Lote Único)
+        // Buscamos si ya existe un medicamento con el mismo nombre, concentración y fecha de vencimiento
+        const medicamentoExistente = await Medicamento.findOne({
+            where: {
+                nombre: nombre,
+                concentracion: concentracion,
+                fecha_vencimiento: fechaFinal
+            }
+        });
+
+        if (medicamentoExistente) {
+            return res.status(400).send({ 
+                message: "Ya existe un registro de este medicamento con la misma concentración y fecha de vencimiento. Si desea añadir stock, utilice la opción de '+' en el inventario." 
+            });
+        }
+
+        // 3. Si no existe, procedemos a crear el nuevo registro
         const nuevo = await Medicamento.create({
             nombre,
             principio_activo,
@@ -42,7 +76,6 @@ exports.crearMedicamento = async (req, res) => {
         res.status(500).send({ message: error.message || "Error al crear medicamento." });
     }
 };
-
 // 3. Actualizar Stock (Inteligente: Maneja Entrada y Salida)
 exports.actualizarStock = async (req, res) => {
     const { cantidad, tipo_movimiento, motivo, id_usuario } = req.body; 

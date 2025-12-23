@@ -33,7 +33,8 @@ module.exports = (sequelize, DataTypes) => {
         },
         Estado_civil: { // Respetando la capitalización de la columna en DB
             type: DataTypes.STRING(50),
-            allowNull: true
+            allowNull: true,
+            field: 'Estado_civil'
         },
         Religion: { // Respetando la capitalización de la columna en DB
             type: DataTypes.STRING(50),

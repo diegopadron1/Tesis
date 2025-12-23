@@ -44,12 +44,10 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
   void _guardarSeccion(String seccion, Map<String, dynamic> datos) async {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Guardando...")));
     
-    // Agregamos info del médico para la Carpeta (Simulación)
-    // En una app real, esto vendría de tu AuthProvider o sesión
     final datosConFirma = {
       ...datos,
-      'id_usuario': '123456', // Cédula del médico logueado
-      'atendido_por': 'Dr. Especialista' // Nombre para mostrar
+      'id_usuario': '123456', 
+      'atendido_por': 'Dr. Especialista' 
     };
 
     final res = await _service.guardarSeccion(_cedulaSearchCtrl.text, seccion, datosConFirma);
@@ -67,8 +65,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
     }
   }
 
-  // --- HELPER CORREGIDO ---
-  // Toma el PRIMER elemento porque el backend los manda ordenados (Nuevos primero)
   Map<String, dynamic> _extraerDataReciente(List<String> keysPosibles) {
     if (_pacienteData == null) return {};
 
@@ -84,7 +80,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
 
     if (rawData is List) {
       if (rawData.isEmpty) return {};
-      // CORRECCIÓN CRÍTICA: Usamos .first porque el backend manda [MasNuevo, Viejo, MasViejo]
       return Map<String, dynamic>.from(rawData.first);
     }
 
@@ -149,23 +144,20 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                   _buildHeaderPaciente(),
                   const Divider(height: 30, thickness: 2),
                   
-                  // 1. DATOS PERSONALES
                   _SeccionDatosPersonales(
                     data: _pacienteData!,
                     onSave: (d) => _guardarSeccion('datos_personales', d),
                   ),
 
-                  // CONTACTO DE EMERGENCIA
                   _SeccionGenerica(
                     titulo: "Contacto de Emergencia",
                     icon: Icons.contact_phone,
                     data: _extraerDataReciente(['ContactoEmergencia', 'ContactoEmergencium', 'ContactoEmergencias']), 
-                    campos: const ['nombre_apellido', 'parentesco', 'cedula_contacto'],
+                    campos: const ['nombre_apellido', 'parentesco', 'cedula_contacto', 'telefono'],
                     seccionKey: 'contacto_emergencia', 
                     onSave: _guardarSeccion,
                   ),
 
-                  // 2. MOTIVO CONSULTA
                   _SeccionGenerica(
                     titulo: "Motivo de Consulta",
                     icon: Icons.chat_bubble_outline,
@@ -175,7 +167,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 3. DIAGNÓSTICO
                   _SeccionGenerica(
                     titulo: "Diagnóstico",
                     icon: Icons.local_hospital,
@@ -185,7 +176,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 4. EXAMEN FÍSICO
                   _SeccionGenerica(
                     titulo: "Examen Físico",
                     icon: Icons.accessibility_new,
@@ -195,7 +185,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 5. EXAMEN FUNCIONAL
                   _SeccionGenerica(
                     titulo: "Examen Funcional",
                     icon: Icons.directions_walk,
@@ -205,7 +194,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 6. ANTECEDENTES PERSONALES
                   _SeccionGenerica(
                     titulo: "Antecedentes Personales",
                     icon: Icons.history,
@@ -215,7 +203,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 7. ANTECEDENTES FAMILIARES
                    _SeccionGenerica(
                     titulo: "Antecedentes Familiares",
                     icon: Icons.family_restroom,
@@ -225,7 +212,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 8. HÁBITOS
                   _SeccionGenerica(
                     titulo: "Hábitos Psicobiológicos",
                     icon: Icons.smoking_rooms,
@@ -235,7 +221,6 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                     onSave: _guardarSeccion,
                   ),
 
-                  // 9. ÓRDENES MÉDICAS
                   _SeccionOrdenesMedicas(
                     ordenes: _pacienteData!['OrdenesMedicas'] ?? [],
                     service: _service,
@@ -365,7 +350,7 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
           tooltip: _isEditing ? "Cancelar" : (tieneDatos ? "Editar" : "Agregar"),
           onPressed: () {
             setState(() {
-              if (_isEditing) _initControllers(); // Reset al cancelar
+              if (_isEditing) _initControllers(); 
               _isEditing = !_isEditing;
             });
           },
@@ -380,7 +365,6 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
     );
   }
 
-  // VISTA 1: LECTURA
   Widget _buildVistaLectura(bool tieneDatos) {
     if (!tieneDatos) {
       return const Padding(
@@ -413,7 +397,6 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
     );
   }
 
-  // VISTA 2: FORMULARIO
   Widget _buildFormulario() {
     return Column(
       children: [
@@ -460,7 +443,6 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
   }
 }
 
-// --- WIDGET DATOS PERSONALES (ACTUALIZADO SEGÚN Paciente.js) ---
 class _SeccionDatosPersonales extends StatefulWidget {
   final Map<String, dynamic> data;
   final Function(Map<String, dynamic>) onSave;
@@ -534,7 +516,7 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: _isEditing 
-              ? Column( // --- MODO EDICIÓN ---
+              ? Column(
                   children: [
                     _buildTextField(_nombreCtrl, "Nombre y Apellido"),
                     Row(
@@ -588,7 +570,7 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
                     )
                   ],
                 )
-              : Column( // --- MODO LECTURA ---
+              : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildInfoRow("Nombre", _nombreCtrl.text),
@@ -633,6 +615,7 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
   }
 }
 
+// --- TAB: ÓRDENES MÉDICAS (DISEÑO MEJORADO) ---
 class _SeccionOrdenesMedicas extends StatelessWidget {
   final List<dynamic> ordenes;
   final HistoriaService service;
@@ -640,86 +623,118 @@ class _SeccionOrdenesMedicas extends StatelessWidget {
 
   const _SeccionOrdenesMedicas({required this.ordenes, required this.service, required this.onUpdate});
 
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: const Icon(Icons.assignment, color: Colors.indigo),
+        title: const Text("Órdenes Médicas Registradas", style: TextStyle(fontWeight: FontWeight.bold)),
+        children: [
+          if (ordenes.isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(20), 
+                child: Text("No hay órdenes en el historial.", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey))),
+          
+          ...ordenes.map((orden) {
+            final esPendiente = orden['estatus'] == 'PENDIENTE';
+            final medInfo = orden['medicamento'] ?? {}; 
+            final nombreFarma = medInfo['nombre'] ?? 'Medicamento no vinculado';
+            
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: esPendiente ? Colors.orange[50] : Colors.grey[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: esPendiente ? Colors.orange[200]! : Colors.grey[300]!),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                title: Text(
+                  nombreFarma.toUpperCase(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    color: esPendiente ? Colors.blue[800] : Colors.grey[700],
+                    fontSize: 15
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Colors.black87, fontSize: 13),
+                        children: [
+                          const TextSpan(text: "Dosis: ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.pink)),
+                          TextSpan(text: "${orden['requerimiento_medicamentos']}"),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text("Indicaciones: ${orden['indicaciones_inmediatas'] ?? 'Ninguna'}",
+                        style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: esPendiente ? Colors.orange : Colors.grey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        orden['estatus'],
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: esPendiente
+                    ? IconButton(
+                        icon: const Icon(Icons.edit_note, color: Colors.indigo, size: 30),
+                        onPressed: () => _editarOrden(context, orden),
+                      )
+                    : const Icon(Icons.check_circle, color: Colors.green),
+              ),
+            );
+          }),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
   void _editarOrden(BuildContext context, Map<String, dynamic> orden) {
     final indicacionesCtrl = TextEditingController(text: orden['indicaciones_inmediatas']);
     final medicamentosCtrl = TextEditingController(text: orden['requerimiento_medicamentos']);
-
+    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Editar Orden #${orden['id_orden']}"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(controller: medicamentosCtrl, maxLines: 2, decoration: const InputDecoration(labelText: "Medicamentos", border: OutlineInputBorder())),
-              const SizedBox(height: 10),
-              TextField(controller: indicacionesCtrl, maxLines: 2, decoration: const InputDecoration(labelText: "Indicaciones", border: OutlineInputBorder())),
-            ],
-          ),
+        title: const Text("Editar Prescripción"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: medicamentosCtrl, maxLines: 2, decoration: const InputDecoration(labelText: "Fármaco y Dosis", border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            TextField(controller: indicacionesCtrl, maxLines: 2, decoration: const InputDecoration(labelText: "Indicaciones del Médico", border: OutlineInputBorder())),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
             onPressed: () async {
               Navigator.pop(ctx);
               final res = await service.editarOrden(orden['id_orden'], {
                 'indicaciones_inmediatas': indicacionesCtrl.text,
                 'requerimiento_medicamentos': medicamentosCtrl.text
               });
-              
-              if (!context.mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(res['message']),
-                backgroundColor: res['success'] ? Colors.green : Colors.red,
-              ));
               if (res['success']) onUpdate();
             },
-            child: const Text("Guardar"),
+            child: const Text("Actualizar", style: TextStyle(color: Colors.white)),
           )
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      child: ExpansionTile(
-        leading: const Icon(Icons.assignment, color: Colors.indigo),
-        title: const Text("Órdenes Médicas", style: TextStyle(fontWeight: FontWeight.bold)),
-        children: [
-          if (ordenes.isEmpty)
-            const Padding(padding: EdgeInsets.all(15), child: Text("No hay órdenes registradas.")),
-          
-          ...ordenes.map((orden) {
-            final esPendiente = orden['estatus'] == 'PENDIENTE';
-            return Column(
-              children: [
-                ListTile(
-                  title: Text("Orden #${orden['id_orden']} (${orden['estatus']})", style: TextStyle(color: esPendiente ? Colors.orange[800] : Colors.grey)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text("Med: ${orden['requerimiento_medicamentos']}"),
-                      Text("Ind: ${orden['indicaciones_inmediatas'] ?? 'Ninguna'}"),
-                    ],
-                  ),
-                  trailing: esPendiente
-                    ? IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.indigo),
-                        tooltip: "Editar Orden Pendiente",
-                        onPressed: () => _editarOrden(context, orden),
-                      )
-                    : const Icon(Icons.lock_outline, color: Colors.grey),
-                ),
-                const Divider(height: 1),
-              ],
-            );
-          })
         ],
       ),
     );
