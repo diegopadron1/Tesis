@@ -27,7 +27,6 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
   }
 
   Future<void> _verificarPermisos() async {
-    // Nota: Aquí deberías usar tu lógica real de roles
     String rolUsuarioLogueado = "ESPECIALISTA"; 
     if (rolUsuarioLogueado != "ESPECIALISTA") {
       if (!mounted) return;
@@ -58,7 +57,6 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
       if (!mounted) return;
 
       List<Map<String, dynamic>> listaTemporal = [];
-
       var motivosRaw = data['MotivoConsultas'] ?? [];
 
       if (motivosRaw is List) {
@@ -114,7 +112,6 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Mostramos las visitas encontradas
     final listaMostrar = _listaVisitas.take(3).toList();
 
     return Scaffold(
@@ -204,7 +201,7 @@ class _ConsultarHistoriaScreenState extends State<ConsultarHistoriaScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// PANTALLA DE DETALLE (LECTURA PROFESIONAL)
+// PANTALLA DE DETALLE (LECTURA PROFESIONAL CORREGIDA)
 // ---------------------------------------------------------------------------
 class DetalleHistorialReadOnlyScreen extends StatelessWidget {
   final Map<String, dynamic> pacienteDataFull;
@@ -218,7 +215,8 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
     required this.fechaTitulo,
   });
 
-  Map<String, dynamic> _extraerDataPorCarpeta(List<String> keysPosibles) {
+  // --- HELPER CORREGIDO: FILTRADO ESTRICTO ---
+  Map<String, dynamic> _extraerData(List<String> keysPosibles, {bool esGlobal = false}) {
     dynamic rawData;
     
     for (var key in keysPosibles) {
@@ -229,26 +227,25 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
     }
 
     if (rawData == null) return {};
+    
+    // Si es un mapa directo, lo devolvemos
     if (rawData is Map) return Map<String, dynamic>.from(rawData);
 
     if (rawData is List && rawData.isNotEmpty) {
-      final targetId = motivoEspecifico['id_carpeta']; 
+      // Si es global (como contacto), devolvemos el más reciente
+      if (esGlobal) return Map<String, dynamic>.from(rawData.first);
 
+      // Si es de carpeta, buscamos el ID exacto
+      final targetId = motivoEspecifico['id_carpeta']; 
       if (targetId != null) {
-        var coincidencia = rawData.firstWhere(
+        var match = rawData.firstWhere(
           (item) => item['id_carpeta'] == targetId,
           orElse: () => null
         );
-
-        if (coincidencia != null) {
-          return Map<String, dynamic>.from(coincidencia);
-        }
+        if (match != null) return Map<String, dynamic>.from(match);
       }
       
-      if (keysPosibles.first.contains('Antecedentes') || keysPosibles.first.contains('Habitos')) {
-         return Map<String, dynamic>.from(rawData.first);
-      }
-
+      // ELIMINADO EL FALLBACK QUE MOSTRABA DATOS VIEJOS
       return {}; 
     }
 
@@ -279,7 +276,7 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
           _SeccionLectura(
             titulo: "Contacto de Emergencia",
             icon: Icons.contact_phone,
-            data: _extraerDataPorCarpeta(['ContactoEmergencium', 'ContactoEmergencia', 'ContactoEmergencias']),
+            data: _extraerData(['ContactoEmergencium', 'ContactoEmergencia'], esGlobal: true),
             campos: const {'nombre_apellido': 'Nombre', 'parentesco': 'Parentesco', 'cedula_contacto': 'Cedula', 'telefono': 'Telefono'},
           ),
 
@@ -294,46 +291,45 @@ class DetalleHistorialReadOnlyScreen extends StatelessWidget {
           _SeccionLectura(
             titulo: "Diagnóstico",
             icon: Icons.local_hospital,
-            data: _extraerDataPorCarpeta(['Diagnostico', 'Diagnosticos']),
+            data: _extraerData(['Diagnostico', 'Diagnosticos']),
             campos: const {'descripcion': 'Descripción', 'tipo': 'Tipo', 'observaciones': 'Observaciones'},
           ),
 
           _SeccionLectura(
             titulo: "Examen Físico",
             icon: Icons.accessibility_new,
-            data: _extraerDataPorCarpeta(['ExamenFisico', 'ExamenFisicos']),
+            data: _extraerData(['ExamenFisico', 'ExamenFisicos']),
             campos: const {'area': 'Área', 'hallazgos': 'Hallazgos'},
           ),
 
           _SeccionLectura(
             titulo: "Examen Funcional",
             icon: Icons.directions_walk,
-            data: _extraerDataPorCarpeta(['ExamenFuncional', 'ExamenFuncionals']),
+            data: _extraerData(['ExamenFuncional', 'ExamenFuncionals']),
             campos: const {'sistema': 'Sistema', 'hallazgos': 'Hallazgos'},
           ),
 
           _SeccionLectura(
-            titulo: "Antecedentes Personales",
+            titulo: "Antecedentes",
             icon: Icons.history,
-            data: _extraerDataPorCarpeta(['AntecedentesPersonales', 'AntecedentesPersonale']),
+            data: _extraerData(['AntecedentesPersonales', 'AntecedentesPersonale']),
             campos: const {'tipo': 'Tipo', 'detalle': 'Detalle'},
           ),
 
           _SeccionLectura(
             titulo: "Antecedentes Familiares",
             icon: Icons.family_restroom,
-            data: _extraerDataPorCarpeta(['AntecedentesFamiliares', 'AntecedentesFamiliare']),
+            data: _extraerData(['AntecedentesFamiliares', 'AntecedentesFamiliare']),
             campos: const {'tipo_familiar': 'Familiar', 'patologias': 'Patologías', 'vivo_muerto': 'Estado'},
           ),
 
           _SeccionLectura(
             titulo: "Hábitos Psicobiológicos",
             icon: Icons.smoking_rooms,
-            data: _extraerDataPorCarpeta(['HabitosPsicobiologicos', 'HabitosPsicobiologico']),
+            data: _extraerData(['HabitosPsicobiologicos', 'HabitosPsicobiologico']),
             campos: const {'cafe': 'Café', 'tabaco': 'Tabaco', 'alcohol': 'Alcohol', 'sueño': 'Sueño'},
           ),
 
-          // ÓRDENES MÉDICAS: Con el nuevo diseño profesional
           _OrdenesMedicasLectura(
             ordenes: (pacienteDataFull['OrdenesMedicas'] as List? ?? [])
               .where((o) => o['id_carpeta'] == motivoEspecifico['id_carpeta'])
@@ -426,7 +422,7 @@ class _SeccionLectura extends StatelessWidget {
                       );
                     }).toList(),
                   )
-                : const Text("Sin información.", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                : const Text("Sin información registrada en esta visita.", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
           )
         ],
       ),
@@ -434,7 +430,6 @@ class _SeccionLectura extends StatelessWidget {
   }
 }
 
-// --- TAB: ÓRDENES MÉDICAS (NUEVO DISEÑO COHERENTE) ---
 class _OrdenesMedicasLectura extends StatelessWidget {
   final List<dynamic> ordenes;
   const _OrdenesMedicasLectura({required this.ordenes});
@@ -493,7 +488,6 @@ class _OrdenesMedicasLectura extends StatelessWidget {
                     Text("Indicaciones: ${orden['indicaciones_inmediatas'] ?? 'Ninguna'}",
                         style: const TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 6),
-                    // Badge de estatus
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
@@ -509,7 +503,7 @@ class _OrdenesMedicasLectura extends StatelessWidget {
                 ),
               ),
             );
-          }), // Ya no requiere .toList() por el spread operator (...) superior
+          }), 
           const SizedBox(height: 10),
         ],
       ),

@@ -4,13 +4,33 @@ const OrdenesMedicas = db.OrdenesMedicas;
 const Medicamento = db.Medicamento;
 const SolicitudMedicamento = db.SolicitudMedicamento;
 const MovimientoInventario = db.MovimientoInventario;
-const Paciente = db.Paciente; 
+const Paciente = db.Paciente;
+const Triaje = db.Triaje; 
 
-// 1. Obtener Órdenes Médicas Pendientes
+// 1. Obtener Órdenes Médicas Pendientes (LÓGICA CORREGIDA SIN ASOCIACIÓN)
 exports.getOrdenesPendientes = async (req, res) => {
     try {
+        // PASO A: Buscar qué carpetas tienen pacientes "Siendo Atendido"
+        const triajesEnAtencion = await Triaje.findAll({
+            where: { estado: 'Siendo Atendido' },
+            attributes: ['id_carpeta'],
+            raw: true
+        });
+
+        // Extraemos solo los IDs de las carpetas
+        const idsCarpetasActivas = triajesEnAtencion.map(t => t.id_carpeta);
+
+        // Si no hay nadie siendo atendido, devolvemos lista vacía de inmediato
+        if (idsCarpetasActivas.length === 0) {
+            return res.status(200).send([]);
+        }
+
+        // PASO B: Buscar las órdenes que pertenezcan a esas carpetas
         const ordenes = await OrdenesMedicas.findAll({
-            where: { estatus: 'PENDIENTE' },
+            where: { 
+                estatus: 'PENDIENTE',
+                id_carpeta: { [Op.in]: idsCarpetasActivas } // Solo carpetas en atención
+            },
             include: [
                 { model: Paciente },
                 { 
@@ -19,21 +39,19 @@ exports.getOrdenesPendientes = async (req, res) => {
                     attributes: ['nombre', 'concentracion'] 
                 }
             ],
-            order: [['createdAt', 'ASC']] // Cambiado a createdAt para consistencia
+            order: [['createdAt', 'ASC']]
         });
+
         res.status(200).send(ordenes);
     } catch (error) {
-        console.error("Error al obtener órdenes:", error);
-        res.status(500).send({ message: "Error al obtener órdenes pendientes." });
+        console.error("Error al obtener órdenes filtradas:", error);
+        res.status(500).send({ message: "Error al obtener órdenes." });
     }
 };
 
-// 2. Solicitar Medicamento (CON VALIDACIÓN DE SOLICITUD ÚNICA)
+// 2. Solicitar Medicamento (CORREGIDO)
 exports.solicitarMedicamento = async (req, res) => {
     const { cedula_paciente, id_medicamento, cantidad, id_usuario } = req.body;
-
-    console.log(`--- Intento de Solicitud ---`);
-    console.log(`Paciente: ${cedula_paciente} | MedID: ${id_medicamento}`);
 
     try {
         // 1. Buscamos la orden PENDIENTE activa
@@ -46,48 +64,44 @@ exports.solicitarMedicamento = async (req, res) => {
         });
 
         if (!ordenPendiente) {
+            return res.status(403).send({ success: false, message: "No hay órdenes pendientes." });
+        }
+
+        // 2. VALIDACIÓN DE ATENCIÓN: ¿El paciente de esta orden está en atención?
+        const estaEnAtencion = await Triaje.findOne({
+            where: { 
+                id_carpeta: ordenPendiente.id_carpeta,
+                estado: 'Siendo Atendido'
+            }
+        });
+
+        if (!estaEnAtencion) {
             return res.status(403).send({ 
-                success: false,
-                message: `Denegado: No hay órdenes pendientes para la cédula ${cedula_paciente}.` 
+                success: false, 
+                message: "DENIEGO: El paciente debe estar en estado 'Siendo Atendido' para despachar fármacos." 
             });
         }
 
-        // ============================================================
-        // NUEVA VALIDACIÓN: CANDADO DE SOLICITUD ÚNICA POR ORDEN
-        // ============================================================
+        // 3. CANDADO DE SOLICITUD ÚNICA
         const solicitudExistente = await SolicitudMedicamento.findOne({
             where: { id_orden: ordenPendiente.id_orden }
         });
 
         if (solicitudExistente) {
-            console.log(`❌ BLOQUEO: La orden #${ordenPendiente.id_orden} ya tiene una solicitud previa.`);
-            return res.status(400).send({ 
-                success: false,
-                message: "BLOQUEO DE SEGURIDAD: Ya existe una solicitud de fármacos para esta orden médica. No se permite duplicar el despacho." 
-            });
+            return res.status(400).send({ success: false, message: "Ya existe una solicitud para esta orden." });
         }
-        // ============================================================
 
-        // 2. VERIFICACIÓN DE SEGURIDAD (Medicamento correcto)
+        // 4. VALIDACIÓN DE MEDICAMENTO Y STOCK
         if (Number(ordenPendiente.id_medicamento) !== Number(id_medicamento)) {
-            const medAutorizado = await Medicamento.findByPk(ordenPendiente.id_medicamento);
-            const nombreAutorizado = medAutorizado ? medAutorizado.nombre : "desconocido";
-
-            return res.status(403).send({ 
-                success: false,
-                message: `Medicamento no autorizado. El médico recetó: ${nombreAutorizado}.` 
-            });
+            return res.status(403).send({ success: false, message: "Medicamento no coincide con la receta." });
         }
 
-        // 3. VALIDACIÓN DE STOCK
         const medicamento = await Medicamento.findByPk(id_medicamento);
-        if (!medicamento) return res.status(404).send({ message: "Medicamento no existe en inventario." });
-
-        if (medicamento.cantidad_disponible < Number(cantidad)) {
-            return res.status(400).send({ message: `Stock insuficiente en farmacia (${medicamento.cantidad_disponible}).` });
+        if (!medicamento || medicamento.cantidad_disponible < Number(cantidad)) {
+            return res.status(400).send({ message: "Stock insuficiente." });
         }
 
-        // 4. CREAR SOLICITUD
+        // 5. PROCESAR
         const nuevaSolicitud = await SolicitudMedicamento.create({
             cedula_paciente,
             id_medicamento: Number(id_medicamento),
@@ -96,59 +110,45 @@ exports.solicitarMedicamento = async (req, res) => {
             id_usuario 
         });
 
-        // Actualizar stock
-        medicamento.cantidad_disponible = (medicamento.cantidad_disponible || 0) - Number(cantidad);
+        medicamento.cantidad_disponible -= Number(cantidad);
         await medicamento.save();
 
-        // Registrar el movimiento para el historial
         await MovimientoInventario.create({
             id_medicamento: Number(id_medicamento),
             tipo_movimiento: 'SALIDA',
             cantidad: Number(cantidad),
-            motivo: `Despacho Orden #${ordenPendiente.id_orden} - Enfermería`,
+            motivo: `Despacho Orden #${ordenPendiente.id_orden}`,
             id_usuario
         });
 
-        res.status(201).send({ 
-            success: true,
-            message: "Solicitud procesada correctamente y stock descontado.", 
-            data: nuevaSolicitud 
-        });
+        res.status(201).send({ success: true, message: "Solicitud procesada.", data: nuevaSolicitud });
 
     } catch (error) {
-        console.error("ERROR CRÍTICO:", error);
-        res.status(500).send({ message: "Error interno al procesar la solicitud." });
+        console.error("ERROR EN SOLICITUD:", error);
+        res.status(500).send({ message: "Error interno del servidor." });
     }
 };
 
-// 3. Actualizar Estatus de Orden (Confirmar o Rechazar)
+// 3. Actualizar Estatus de Orden (Queda igual, es seguro)
 exports.actualizarEstatusOrden = async (req, res) => {
     const { id_orden } = req.params;
     const { estatus, observaciones, id_usuario } = req.body; 
-
-    if (!estatus) return res.status(400).send({ message: "El estatus es obligatorio." });
-
     try {
         const orden = await OrdenesMedicas.findByPk(id_orden);
-        if (!orden) return res.status(404).send({ message: "Orden médica no encontrada." });
+        if (!orden) return res.status(404).send({ message: "Orden no encontrada." });
 
-        // Si se cancela la orden, devolvemos el stock solicitado
         if (estatus === 'NO_REALIZADA') {
-            const solicitudes = await SolicitudMedicamento.findAll({ 
-                where: { id_orden: id_orden } 
-            });
-
-            for (const solicitud of solicitudes) {
-                const med = await Medicamento.findByPk(solicitud.id_medicamento);
+            const solicitudes = await SolicitudMedicamento.findAll({ where: { id_orden } });
+            for (const sol of solicitudes) {
+                const med = await Medicamento.findByPk(sol.id_medicamento);
                 if (med) {
-                    med.cantidad_disponible += solicitud.cantidad;
+                    med.cantidad_disponible += sol.cantidad;
                     await med.save();
-
                     await MovimientoInventario.create({
                         id_medicamento: med.id_medicamento,
                         tipo_movimiento: 'ENTRADA',
-                        cantidad: solicitud.cantidad,
-                        motivo: `REVERSIÓN: Orden #${id_orden} cancelada/rechazada`,
+                        cantidad: sol.cantidad,
+                        motivo: `REVERSIÓN: Orden #${id_orden} cancelada`,
                         id_usuario: id_usuario || null
                     });
                 }
@@ -159,36 +159,31 @@ exports.actualizarEstatusOrden = async (req, res) => {
         orden.observaciones_cumplimiento = observaciones;
         orden.fecha_cumplimiento = new Date();
         await orden.save();
-
-        res.status(200).send({ 
-            success: true,
-            message: estatus === 'NO_REALIZADA' 
-                ? "Orden rechazada y medicamentos devueltos al inventario." 
-                : `Orden actualizada a: ${estatus}`,
-            orden: orden
-        });
-
+        res.status(200).send({ success: true, message: `Orden actualizada a: ${estatus}` });
     } catch (error) {
-        console.error("Error al actualizar orden:", error);
-        res.status(500).send({ message: "Error interno al actualizar la orden." });
+        res.status(500).send({ message: "Error al actualizar." });
     }
 };
 
-// 4. Obtener medicamento autorizado de la orden activa
+// 4. Obtener medicamento autorizado (CORREGIDO)
 exports.getMedicamentoAutorizado = async (req, res) => {
     const { cedula } = req.params;
     try {
         const orden = await OrdenesMedicas.findOne({
             where: { cedula_paciente: cedula, estatus: 'PENDIENTE' },
-            include: [{ 
-                model: Medicamento, 
-                as: 'medicamento'
-            }],
+            include: [{ model: Medicamento, as: 'medicamento' }],
             order: [['createdAt', 'DESC']]
         });
 
-        if (!orden) {
-            return res.status(404).send({ message: "No se encontró una orden pendiente." });
+        if (!orden) return res.status(404).send({ message: "No hay órdenes pendientes." });
+
+        // Validar si está en atención antes de dar la info
+        const enAtencion = await Triaje.findOne({
+            where: { id_carpeta: orden.id_carpeta, estado: 'Siendo Atendido' }
+        });
+
+        if (!enAtencion) {
+            return res.status(403).send({ message: "El paciente aún no está en atención médica." });
         }
 
         res.status(200).send({
@@ -198,6 +193,6 @@ exports.getMedicamentoAutorizado = async (req, res) => {
             dosis_recetada: orden.requerimiento_medicamentos
         });
     } catch (error) {
-        res.status(500).send({ message: "Error al consultar la orden activa." });
+        res.status(500).send({ message: "Error al consultar la orden." });
     }
 };

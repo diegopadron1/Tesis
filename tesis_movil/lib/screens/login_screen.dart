@@ -1,8 +1,8 @@
-// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'auth/forgot_password_screen.dart'; 
+import '../theme_notifier.dart'; // IMPORTANTE: Asegúrate de que este archivo exista
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,9 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: <Widget>[
           TextButton(
             child: const Text('Ok'),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
+            onPressed: () => Navigator.of(ctx).pop(),
           )
         ],
       ),
@@ -36,10 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    // 1. Bloqueamos los campos y mostramos el indicador de carga
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     final result = await _authService.signIn(
       cedula: _cedulaController.text,
@@ -48,11 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    // 2. Quitamos el bloqueo (esto solo será visible si hay error, 
-    //    si es éxito cambiamos de pantalla rápido)
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (result['success']) {
       Navigator.of(context).pushReplacement(
@@ -85,13 +76,12 @@ class _LoginScreenState extends State<LoginScreen> {
             // --- CAMPO CÉDULA ---
             TextFormField(
               controller: _cedulaController,
-              // AQUÍ ESTÁ EL CAMBIO:
-              enabled: !_isLoading, // Se deshabilita si está cargando
+              enabled: !_isLoading,
               decoration: const InputDecoration(
                 labelText: 'Cédula de Identidad (Usuario)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
-                filled: true, // Opcional: para resaltar el fondo gris
+                filled: true,
               ),
               keyboardType: TextInputType.text,
             ),
@@ -101,8 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
             // --- CAMPO CONTRASEÑA ---
             TextFormField(
               controller: _passwordController,
-              // AQUÍ ESTÁ EL CAMBIO:
-              enabled: !_isLoading, // Se deshabilita si está cargando
+              enabled: !_isLoading,
               decoration: const InputDecoration(
                 labelText: 'Contraseña',
                 border: OutlineInputBorder(),
@@ -116,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                // AQUÍ ESTÁ EL CAMBIO: Si carga, el botón no hace nada (null)
                 onPressed: _isLoading 
                     ? null 
                     : () {
@@ -150,6 +138,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
           ],
         ),
+      ),
+      
+      // --- NUEVO: BOTÓN DE TEMA EN LA PARTE INFERIOR DERECHA ---
+      floatingActionButton: ValueListenableBuilder<ThemeMode>(
+        valueListenable: ThemeNotifier.themeMode,
+        builder: (context, mode, _) {
+          return FloatingActionButton(
+            mini: true, // Lo hace un poco más pequeño y sutil
+            tooltip: "Cambiar Tema",
+            backgroundColor: mode == ThemeMode.dark ? Colors.amber : Colors.indigo,
+            child: Icon(
+              mode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
+            ),
+            onPressed: () => ThemeNotifier.toggleTheme(),
+          );
+        },
       ),
     );
   }

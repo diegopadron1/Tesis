@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-// 1. IMPORTANTE: Esta librería es obligatoria para el calendario
 import 'package:flutter_localizations/flutter_localizations.dart'; 
 import 'screens/login_screen.dart';
+import 'theme_notifier.dart'; // Importa el notifier
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized(); 
@@ -13,48 +13,60 @@ class TesisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Emergencia Razetti',
-      debugShowCheckedModeBanner: false,
-      
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        brightness: Brightness.dark,
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.deepPurple.shade900,
-          foregroundColor: Colors.white,
-        ),
-        scaffoldBackgroundColor: Colors.grey.shade900,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.grey.shade800,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeNotifier.themeMode,
+      builder: (_, mode, __) {
+        return MaterialApp(
+          title: 'Emergencia Razetti',
+          debugShowCheckedModeBanner: false,
+          themeMode: mode, // Escucha el cambio aquí
+
+          // --- TEMA CLARO ---
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            colorSchemeSeed: Colors.indigo,
+            scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            ),
           ),
-          hintStyle: TextStyle(color: Colors.grey.shade400),
-          labelStyle: const TextStyle(color: Colors.white70),
-        ),
-      ),
 
-      // RUTAS
-      initialRoute: '/', 
-      routes: {
-        '/': (context) => const LoginScreen(),
+          // --- TEMA OSCURO (Tu diseño actual) ---
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            primarySwatch: Colors.deepPurple,
+            scaffoldBackgroundColor: Colors.grey.shade900,
+            appBarTheme: AppBarTheme(
+              backgroundColor: Colors.deepPurple.shade900,
+              foregroundColor: Colors.white,
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: Colors.grey.shade800,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              labelStyle: const TextStyle(color: Colors.white70),
+            ),
+          ),
+
+          initialRoute: '/', 
+          routes: {'/': (context) => const LoginScreen()},
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en', 'US'),
+            Locale('es', 'ES'),
+          ],
+        );
       },
-
-      // --- AQUÍ ESTÁ LA SOLUCIÓN DEL ERROR ---
-      // Sin esto, el DatePicker en español hace que la app falle
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('en', 'US'), // Inglés
-        Locale('es', 'ES'), // Español (El que estás pidiendo)
-      ],
-      // ----------------------------------------
     );
   }
 }

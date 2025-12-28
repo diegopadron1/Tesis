@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/triaje_service.dart'; 
+import '../services/enfermeria_service.dart'; 
 import 'admin_board_screen.dart';
 import 'resident/patient_search_screen.dart'; 
 import 'resident/resident_home_screen.dart'; 
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final AuthService _authService = AuthService();
   final TriajeService _triajeService = TriajeService();
+  final EnfermeriaService _enfermeriaService = EnfermeriaService(); 
   
   String? _rol;
   String? _nombreUsuario;
@@ -27,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _pacientesUrgencias = []; 
   List<dynamic> _pacientesReferidos = []; 
   bool _loadingPacientes = false;
+  int _ordenesPendientesCount = 0; 
 
   final List<String> _zonas = [
     'Pasillo 1', 'Pasillo 2', 'Quirofanito paciente delicados', 
@@ -54,8 +57,52 @@ class _HomeScreenState extends State<HomeScreen> {
         _cargarPacientes();
       } else if (rol == 'Especialista') {
         _cargarReferidos();
+      } else if (rol != null && rol.toLowerCase().contains('enfermer')) {
+        _verificarOrdenesPendientes();
       }
     }
+  }
+
+  // --- LÓGICA DE NOTIFICACIÓN PARA ENFERMERÍA ---
+  Future<void> _verificarOrdenesPendientes() async {
+    try {
+      final ordenes = await _enfermeriaService.getOrdenesPendientes();
+      if (mounted && ordenes.isNotEmpty) {
+        setState(() {
+          _ordenesPendientesCount = ordenes.length;
+        });
+        _mostrarNotificacionEnfermeria();
+      }
+    } catch (e) {
+      debugPrint("Error verificando órdenes: $e");
+    }
+  }
+
+  void _mostrarNotificacionEnfermeria() {
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.all(15),
+        content: Text(
+          "📢 ATENCIÓN: Hay $_ordenesPendientesCount órdenes médicas pendientes por administrar.",
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        leading: const Icon(Icons.notification_important, color: Colors.amber, size: 30),
+        backgroundColor: Colors.indigo[700],
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const NurseHomeScreen()));
+            },
+            child: const Text("VER ÓRDENES", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+            child: const Text("CERRAR", style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _cargarPacientes() async {
@@ -80,7 +127,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- [OPCIÓN 1] PARA RESIDENTES (3 Opciones: Alta, Traslado, Fallecido) ---
   void _finalizarAtencion(int idTriaje) async {
     String? seleccion = await showDialog<String>(
       context: context,
@@ -98,11 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
-
     if (seleccion != null) _procesarCambioEstado(idTriaje, seleccion);
   }
 
-  // --- [OPCIÓN 2] PARA ESPECIALISTAS (2 Opciones: Alta, Fallecido) ---
   void _finalizarEspecialista(int idTriaje) async {
     String? seleccion = await showDialog<String>(
       context: context,
@@ -111,7 +155,6 @@ class _HomeScreenState extends State<HomeScreen> {
           title: const Text('Finalizar Caso', style: TextStyle(fontWeight: FontWeight.bold)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           children: <Widget>[
-            // Solo Alta y Fallecido
             _buildDialogOption(ctx, 'Alta', Icons.assignment_turned_in, Colors.teal, 'Alta Médica', 'Cerrar caso clínico'),
             const Divider(),
             _buildDialogOption(ctx, 'Fallecido', Icons.person_off, Colors.grey, 'Fallecido', 'Reportar deceso'),
@@ -121,25 +164,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (seleccion == null) return;
-
-    // Confirmación Especialista
     bool confirm = await _mostrarConfirmacion(seleccion);
     
     if (confirm && mounted) {
-      // Llamamos a la función NUEVA del servicio
       final success = await _triajeService.finalizarCasoEspecialista(idTriaje, seleccion);
-      
       if (!mounted) return;
       if (success) {
-         _mostrarSnackBar("Caso cerrado: $seleccion", Colors.teal);
-        _cargarReferidos(); // Recargar lista especialista
+        _mostrarSnackBar("Caso cerrado: $seleccion", Colors.teal);
+        _cargarReferidos(); 
       } else {
         _mostrarSnackBar("Error al finalizar caso", Colors.red);
       }
     }
   }
 
-  // Helper para construir opciones del menú
   Widget _buildDialogOption(BuildContext ctx, String valor, IconData icono, MaterialColor? color, String titulo, String sub) {
     return SimpleDialogOption(
       onPressed: () => Navigator.pop(ctx, valor),
@@ -148,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color?[50] ?? Colors.grey[200], borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color?.withValues(alpha: 0.1) ?? Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Icon(icono, color: color),
           ),
           const SizedBox(width: 15),
@@ -200,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
-  // --- ATENDER PACIENTE ---
   void _atenderPaciente(int idTriaje, String ubicacionActual) {
     String? nuevaZonaSeleccionada;
     bool cambiarZona = false;
@@ -242,7 +279,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: DropdownButtonFormField<String>(
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: "Nueva Zona", border: OutlineInputBorder()),
-                        initialValue: nuevaZonaSeleccionada,
                         items: _zonas.where((z) => z != ubicacionActual).map((z) => DropdownMenuItem(value: z, child: Text(z))).toList(),
                         onChanged: (val) => setStateDialog(() => nuevaZonaSeleccionada = val),
                       ),
@@ -279,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   void _logout() async {
+    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
     await _authService.signOut();
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); 
@@ -301,7 +338,11 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh), 
-              onPressed: _rol == 'Especialista' ? _cargarReferidos : _cargarPacientes
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+                _rol == 'Especialista' ? _cargarReferidos() : _cargarPacientes();
+                if (_rol != null && _rol!.toLowerCase().contains('enfermer')) _verificarOrdenesPendientes();
+              }
             ),
             IconButton(icon: const Icon(Icons.logout), onPressed: _logout)
           ],
@@ -327,15 +368,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ) 
           : (_rol == 'Especialista' 
               ? _buildSpecialistView() 
-              : _buildDefaultWelcome()),
+              : _buildDefaultWelcome()), // Volvimos al Welcome por defecto para Enfermería
       ),
     );
   }
 
-  // VISTA RESIDENTE
   Widget _buildTabContent({required List<dynamic> lista, required bool esEnEspera}) {
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
-
     if (lista.isEmpty) {
       return Center(
         child: Column(
@@ -372,7 +411,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onDarAlta: () => _finalizarAtencion(p['id_triaje']),
             onAtender: () => _atenderPaciente(p['id_triaje'], p['ubicacion'] ?? 'Desconocida'),
             onTap: () {
-              // Navegación a detalle...
                final datosParaHome = {
                       'cedula': p['cedula_paciente'],
                       'nombre': p['nombre'],
@@ -390,10 +428,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- VISTA ESPECIALISTA (MODIFICADA) ---
   Widget _buildSpecialistView() {
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
-
     if (_pacientesReferidos.isEmpty) {
       return Center(
         child: Column(
@@ -429,9 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final p = _pacientesReferidos[i];
               return PatientCard(
                 paciente: p,
-                // AQUÍ ESTÁ LA CLAVE: Usamos onDarAlta pero llamamos a _finalizarEspecialista
                 onDarAlta: () => _finalizarEspecialista(p['id_triaje']),
-                // Especialista NO usa botón de atender (cambio de zona)
                 onAtender: null, 
                 onTap: () {
                     final datosParaHome = {
@@ -453,13 +487,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ... (El _buildDrawer y _buildDefaultWelcome quedan igual)
   Widget _buildDefaultWelcome() {
-    return Center(child: Text("Bienvenido")); // Simplificado para ahorrar espacio
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.local_hospital, size: 100, color: Colors.indigo.withValues(alpha: 0.2)),
+          const SizedBox(height: 20),
+          Text("Bienvenido(a), $_nombreUsuario", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 5),
+          Text("Rol: $_rol", style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          const SizedBox(height: 20),
+          const Text("Sistema de Gestión Hospitalaria Razetti", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+        ],
+      ),
+    );
   }
   
   Widget _buildDrawer(BuildContext context) {
-      // (Tu código del drawer existente va aquí, no necesita cambios)
       return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -475,15 +520,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text('Bienvenido,', style: TextStyle(color: Colors.white70)),
                 Text(
                   _nombreUsuario ?? _rol ?? 'Usuario', 
-                  style: const TextStyle(
-                    color: Colors.white, 
-                    fontSize: 20, 
-                   fontWeight: FontWeight.bold
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  maxLines: 2, 
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2, 
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
             ),
           ),
           
@@ -518,20 +559,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
           if (_rol == 'Residente' || _rol == 'Especialista') ...[
-              
              if (_rol == 'Residente')
               ListTile(
                 leading: const Icon(Icons.person_search), 
                 title: const Text('Buscar / Registrar Paciente'), 
-                subtitle: const Text('Registrar, Diagnosticar, Exámenes'),
                 onTap: () {
                  Navigator.pop(context);
                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientSearchScreen()));
                 },
               ),
-
              const Divider(), 
-             
              ListTile(
               leading: const Icon(Icons.edit_note, color: Colors.indigo),
               title: const Text('Actualizar Historia Clínica'),
@@ -540,13 +577,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoriaClinicaScreen()));
               },
             ),
-
             if (_rol == 'Especialista')
               ListTile(
                 leading: const Icon(Icons.menu_book, color: Colors.teal),
                 title: const Text('Consultar Historial'),
-                subtitle: const Text('Modo Lectura'),
-                tileColor: Colors.teal.withValues(alpha: 0.05),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultarHistoriaScreen()));

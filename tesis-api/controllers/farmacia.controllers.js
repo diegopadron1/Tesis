@@ -3,18 +3,26 @@ const Medicamento = db.Medicamento;
 const MovimientoInventario = db.MovimientoInventario;
 const { Op } = require("sequelize");
 
-// 1. Ver inventario
+// 1. Ver inventario (CON FILTRO DE STOCK PARA BÚSQUEDAS)
 exports.getMedicamentos = async (req, res) => {
     try {
         const { q } = req.query; // Capturamos el parámetro ?q= de la URL
         let whereClause = {};
 
-        // Si el médico escribe algo, filtramos por nombre o principio activo
+        // Si el médico escribe algo, filtramos por nombre/principio activo Y stock disponible
         if (q) {
             whereClause = {
-                [Op.or]: [
-                    { nombre: { [Op.iLike]: `%${q}%` } },
-                    { principio_activo: { [Op.iLike]: `%${q}%` } }
+                [Op.and]: [
+                    {
+                        [Op.or]: [
+                            { nombre: { [Op.iLike]: `%${q}%` } },
+                            { principio_activo: { [Op.iLike]: `%${q}%` } }
+                        ]
+                    },
+                    {
+                        // Solo muestra medicamentos con existencias
+                        cantidad_disponible: { [Op.gt]: 0 } 
+                    }
                 ]
             };
         }
@@ -31,7 +39,7 @@ exports.getMedicamentos = async (req, res) => {
     }
 };
 
-// 2. Crear Medicamento (Tu lógica original restaurada)
+// 2. Crear Medicamento
 exports.crearMedicamento = async (req, res) => {
     try {
         const { nombre, principio_activo, concentracion, presentacion, stock_minimo, fecha_vencimiento } = req.body;
@@ -43,8 +51,7 @@ exports.crearMedicamento = async (req, res) => {
         // 1. Normalización de la fecha para la búsqueda
         const fechaFinal = (fecha_vencimiento && fecha_vencimiento !== "") ? fecha_vencimiento : null;
 
-        // 2. Verificación de duplicados (Lógica de Lote Único)
-        // Buscamos si ya existe un medicamento con el mismo nombre, concentración y fecha de vencimiento
+        // 2. Verificación de duplicados
         const medicamentoExistente = await Medicamento.findOne({
             where: {
                 nombre: nombre,
@@ -76,7 +83,8 @@ exports.crearMedicamento = async (req, res) => {
         res.status(500).send({ message: error.message || "Error al crear medicamento." });
     }
 };
-// 3. Actualizar Stock (Inteligente: Maneja Entrada y Salida)
+
+// 3. Actualizar Stock (Maneja Entrada y Salida)
 exports.actualizarStock = async (req, res) => {
     const { cantidad, tipo_movimiento, motivo, id_usuario } = req.body; 
     const { id } = req.params;
