@@ -29,26 +29,49 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     });
   }
 
-  // --- FUNCIÓN ELIMINAR ---
+  // --- ACCIÓN RÁPIDA AL BUSCAR ---
+  void _mostrarAccionesRapidas(Medicamento med) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_circle, color: Colors.green),
+              title: const Text("Agregar Stock"),
+              onTap: () { Navigator.pop(ctx); _showAddStockDialog(med); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.remove_circle, color: Colors.red),
+              title: const Text("Retirar Stock"),
+              onTap: () { Navigator.pop(ctx); _showRemoveStockDialog(med); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.grey),
+              title: const Text("Eliminar Registro"),
+              onTap: () { Navigator.pop(ctx); _confirmarEliminacion(med); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _confirmarEliminacion(Medicamento med) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Confirmar Eliminación"),
-        content: Text("¿Estás seguro de que deseas eliminar '${med.nombre}'?\nEsta acción es irreversible."),
+        content: Text("¿Estás seguro de que deseas eliminar '${med.nombre}'?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Eliminando...")));
               final res = await _service.eliminarMedicamento(med.idMedicamento);
               if (mounted) {
-                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(res['message']),
-                    backgroundColor: res['success'] ? Colors.green : Colors.red
-                 ));
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
                  if (res['success']) _refreshList();
               }
             },
@@ -59,7 +82,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
-  // --- DIÁLOGOS (Crear, Agregar, Quitar) ---
+  // --- DIÁLOGOS (Se mantienen igual) ---
   void _showCreateDialog() {
     final formKey = GlobalKey<FormState>();
     final nombreCtrl = TextEditingController();
@@ -80,15 +103,14 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
               children: [
                 TextFormField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre Comercial *"), validator: (v) => v!.isEmpty ? "Requerido" : null),
                 TextFormField(controller: principioCtrl, decoration: const InputDecoration(labelText: "Principio Activo")),
-                TextFormField(controller: concentracionCtrl, decoration: const InputDecoration(labelText: "Concentración (Ej: 500mg)")),
-                TextFormField(controller: presentacionCtrl, decoration: const InputDecoration(labelText: "Presentación (Ej: Tableta)")),
+                TextFormField(controller: concentracionCtrl, decoration: const InputDecoration(labelText: "Concentración")),
+                TextFormField(controller: presentacionCtrl, decoration: const InputDecoration(labelText: "Presentación")),
                 TextFormField(
                   controller: fechaCtrl,
                   decoration: const InputDecoration(labelText: "Fecha Vencimiento", suffixIcon: Icon(Icons.calendar_today)),
                   readOnly: true,
                   onTap: () async {
-                    DateTime? pickedDate = await showDatePicker(
-                      context: context, initialDate: DateTime.now().add(const Duration(days: 365)), firstDate: DateTime.now(), lastDate: DateTime(2100));
+                    DateTime? pickedDate = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 365)), firstDate: DateTime.now(), lastDate: DateTime(2100));
                     if (pickedDate != null) fechaCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
                   },
                 ),
@@ -102,12 +124,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
               final res = await _service.createMedicamento({
-                'nombre': nombreCtrl.text,
-                'principio_activo': principioCtrl.text,
-                'concentracion': concentracionCtrl.text,
-                'presentacion': presentacionCtrl.text,
-                'stock_minimo': 10,
-                'fecha_vencimiento': fechaCtrl.text
+                'nombre': nombreCtrl.text, 'principio_activo': principioCtrl.text, 'concentracion': concentracionCtrl.text, 'presentacion': presentacionCtrl.text, 'stock_minimo': 10, 'fecha_vencimiento': fechaCtrl.text
               });
               if (ctx.mounted) Navigator.pop(ctx);
               if (mounted) {
@@ -207,66 +224,116 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
           )
         ],
       ),
-      body: FutureBuilder<List<Medicamento>>(
-        future: _inventarioFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-          if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("Inventario vacío."));
-
-          final lista = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: lista.length,
-            itemBuilder: (ctx, i) {
-              final med = lista[i];
-              return Card(
-                elevation: 3,
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: med.cantidadDisponible <= med.stockMinimo ? Colors.red[100] : Colors.green[100],
-                    child: Icon(Icons.medication, color: med.cantidadDisponible <= med.stockMinimo ? Colors.red : Colors.green[800]),
+      body: Column(
+        children: [
+          // --- BUSCADOR AUTOCOMPLETE ---
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Autocomplete<Medicamento>(
+              displayStringForOption: (Medicamento m) => m.nombre,
+              optionsBuilder: (TextEditingValue textEditingValue) async {
+                if (textEditingValue.text.isEmpty) return const Iterable<Medicamento>.empty();
+                return await _service.searchMedicamentos(textEditingValue.text);
+              },
+              onSelected: (Medicamento selection) {
+                _mostrarAccionesRapidas(selection);
+              },
+              fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                return TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  decoration: InputDecoration(
+                    hintText: "Buscar medicamento...",
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: IconButton(icon: const Icon(Icons.clear), onPressed: () => controller.clear()),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)),
+                    filled: true,
+                    fillColor: const Color.fromARGB(255, 3, 0, 0),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   ),
-                  title: Text("${med.nombre} ${med.concentracion ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  
-                  // --- CAMBIO AQUÍ: SUBTÍTULO CON DOS LÍNEAS ---
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("${med.presentacion ?? 'Unidad'} • Stock: ${med.cantidadDisponible}"),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            med.fechaVencimiento != null ? "Vence: ${med.fechaVencimiento}" : "Sin fecha de vencimiento",
-                            style: TextStyle(
-                              color: Colors.grey[700], 
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500
-                            ),
-                          ),
-                        ],
+                );
+              },
+              optionsViewBuilder: (context, onSelected, options) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.9,
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        separatorBuilder: (ctx, i) => const Divider(height: 1),
+                        itemBuilder: (ctx, i) {
+                          final m = options.elementAt(i);
+                          return ListTile(
+                            title: Text("${m.nombre} ${m.concentracion ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text("Stock: ${m.cantidadDisponible} | ${m.presentacion}"),
+                            onTap: () => onSelected(m),
+                          );
+                        },
                       ),
-                    ],
+                    ),
                   ),
-                  
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                       IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showRemoveStockDialog(med)),
-                       IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showAddStockDialog(med)),
-                       const SizedBox(width: 8), 
-                       IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey), onPressed: () => _confirmarEliminacion(med)),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            ),
+          ),
+          
+          // --- LISTA DE INVENTARIO ---
+          Expanded(
+            child: FutureBuilder<List<Medicamento>>(
+              future: _inventarioFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+                if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("Inventario vacío."));
+                final lista = snapshot.data!;
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  itemCount: lista.length,
+                  itemBuilder: (ctx, i) {
+                    final med = lista[i];
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: med.cantidadDisponible <= med.stockMinimo ? Colors.red[100] : Colors.green[100],
+                          child: Icon(Icons.medication, color: med.cantidadDisponible <= med.stockMinimo ? Colors.red : Colors.green[800]),
+                        ),
+                        title: Text("${med.nombre} ${med.concentracion ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("${med.presentacion ?? 'Unidad'} • Stock: ${med.cantidadDisponible}"),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(med.fechaVencimiento != null ? "Vence: ${med.fechaVencimiento}" : "Sin vencimiento", style: const TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                             IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showRemoveStockDialog(med)),
+                             IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showAddStockDialog(med)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateDialog,

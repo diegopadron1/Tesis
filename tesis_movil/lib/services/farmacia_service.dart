@@ -13,6 +13,25 @@ class FarmaciaService {
     return { 'Content-Type': 'application/json', 'x-access-token': token };
   }
 
+  // --- NUEVO MÉTODO: BUSCAR MEDICAMENTOS ---
+  Future<List<Medicamento>> searchMedicamentos(String query) async {
+    final headers = await _getHeaders();
+    if (headers == null) return [];
+    try {
+      final response = await http.get(
+        Uri.parse("${ApiConfig.baseUrl}/farmacia/medicamentos/search?nombre=$query"),
+        headers: headers
+      );
+      if (response.statusCode == 200) {
+        List<dynamic> body = jsonDecode(response.body);
+        return body.map((e) => Medicamento.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   // GET
   Future<List<Medicamento>> getInventario() async {
     final headers = await _getHeaders();
@@ -29,11 +48,9 @@ class FarmaciaService {
     }
   }
 
-  // CREATE (Adaptado para recibir Map)
   Future<Map<String, dynamic>> createMedicamento(Map<String, dynamic> data) async {
     final headers = await _getHeaders();
     if (headers == null) return {'success': false, 'message': 'Sin sesión'};
-
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.farmaciaCrearUrl),
@@ -47,26 +64,20 @@ class FarmaciaService {
     }
   }
 
-  // ADD STOCK (Redirige al endpoint unificado con tipo ENTRADA)
   Future<Map<String, dynamic>> addStock(int id, int cantidad, String motivo) async {
     return _callStockApi(id, cantidad, 'ENTRADA', motivo);
   }
 
-  // REMOVE STOCK (Redirige al endpoint unificado con tipo SALIDA)
   Future<Map<String, dynamic>> removeStock(int id, int cantidad, String motivo) async {
     return _callStockApi(id, cantidad, 'SALIDA', motivo);
   }
 
-  // Función privada que hace la llamada real
   Future<Map<String, dynamic>> _callStockApi(int id, int cantidad, String tipo, String motivo) async {
     final headers = await _getHeaders();
     if (headers == null) return {'success': false, 'message': 'Sin sesión'};
     final idUsuario = await _authService.getCedulaUsuario();
-
     try {
-      // Construimos la URL: .../medicamentos/1/stock
       final url = "${ApiConfig.farmaciaInventarioUrl.replaceAll('/inventario', '')}/medicamentos/$id/stock";
-      
       final response = await http.put(
         Uri.parse(url),
         headers: headers,
@@ -84,11 +95,9 @@ class FarmaciaService {
     }
   }
 
-  // DELETE
   Future<Map<String, dynamic>> eliminarMedicamento(int id) async {
     final headers = await _getHeaders();
     if (headers == null) return {'success': false, 'message': 'Sin sesión'};
-
     try {
       final url = "${ApiConfig.farmaciaInventarioUrl.replaceAll('/inventario', '')}/medicamentos/$id";
       final response = await http.delete(Uri.parse(url), headers: headers);

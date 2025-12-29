@@ -1,10 +1,8 @@
-// routes/user.routes.js (CORREGIDO)
+// routes/user.routes.js (CORREGIDO Y ACTUALIZADO)
 const { verifyToken, isAdmin } = require("../middlewares/authJwt");
 const controller = require("../controllers/user.controller");
 
-
 module.exports = function(app) {
-    // Rutas protegidas por el token
     // 1. Middleware de Headers
     app.use(function(req, res, next) {
         res.header(
@@ -12,22 +10,28 @@ module.exports = function(app) {
             "x-access-token, Origin, Content-Type, Accept"
         );
         next();
-    }); // <--- EL CIERRE DEL app.use DEBE SER AQUÍ
+    });
 
-    // 2. Rutas que usan el patrón app.get/app.post (Fuera del middleware anterior)
-    
+    // 2. Rutas de Roles y Test
     app.get(
         "/api/roles",
-        [verifyToken], // Solo requiere token válido
+        [verifyToken],
         controller.findAllRoles
     );
 
-    // Endpoint de prueba que requiere:
-    // ...
     app.get(
         "/api/test/admin",
         [verifyToken, isAdmin],
         controller.adminBoard
+    );
+
+    // 3. RUTAS DE USUARIOS (ORDEN IMPORTANTE)
+    
+    // El buscador debe ir PRIMERO
+    app.get(
+        "/api/admin/users/search",
+        [verifyToken, isAdmin],
+        controller.searchUsersByCedula
     );
 
     app.post(
@@ -48,5 +52,3 @@ module.exports = function(app) {
         controller.updateUser
     );
 };
-
-

@@ -1,8 +1,8 @@
 const db = require('../models');
-// CORRECCIÓN: Usamos las claves exactas definidas en index.js (minúsculas)
 const Rol = db.role; 
 const Usuario = db.user;
 const bcrypt = require('bcryptjs');
+const { Op } = require("sequelize"); // <--- IMPORTANTE: Añadimos Op para la búsqueda
 
 exports.findAllRoles = async (req, res) => {
     try {
@@ -25,14 +25,11 @@ exports.adminBoard = (req, res) => {
 exports.createUser = async (req, res) => {
     try {
         const { cedula, nombre, apellido, email, password, id_rol } = req.body;
-
         const existingUser = await Usuario.findByPk(cedula);
         if (existingUser) {
             return res.status(409).send({ message: "La cédula ya está registrada." });
         }
-
         const hashedPassword = bcrypt.hashSync(password, 10);
-
         const newUser = await Usuario.create({
             cedula: cedula,
             nombre: nombre,
@@ -42,7 +39,6 @@ exports.createUser = async (req, res) => {
             id_rol: id_rol,
             activo: true 
         });
-
         res.status(201).send({
             message: "Usuario creado exitosamente por el Administrador.",
             usuario: {
@@ -52,7 +48,6 @@ exports.createUser = async (req, res) => {
                 rol: id_rol 
             }
         });
-
     } catch (error) {
         res.status(500).send({ 
             message: error.message || "Ocurrió un error al crear el usuario." 
@@ -64,9 +59,7 @@ exports.updateUser = async (req, res) => {
     try {
         const { cedula } = req.params; 
         const { nombre, apellido, email, password, id_rol, activo } = req.body; 
-
         const usuario = await Usuario.findByPk(cedula);
-
         if (!usuario) {
             return res.status(404).send({ message: "Usuario no encontrado." });
         }
@@ -78,13 +71,10 @@ exports.updateUser = async (req, res) => {
             id_rol: id_rol || usuario.id_rol,
             activo: activo !== undefined ? activo : usuario.activo, 
         };
-
         if (password) {
             updateData.password = bcrypt.hashSync(password, 10);
         }
-
         await usuario.update(updateData);
-
         res.status(200).send({
             message: `Usuario con cédula ${cedula} actualizado exitosamente.`,
             usuario: {
@@ -94,7 +84,6 @@ exports.updateUser = async (req, res) => {
                 activo: updateData.activo
             }
         });
-
     } catch (error) {
         res.status(500).send({ 
             message: error.message || "Ocurrió un error al actualizar el usuario." 
@@ -102,20 +91,37 @@ exports.updateUser = async (req, res) => {
     }
 };
 
-// **IMPORTANTE:** Corrección para que funcione el listado
 exports.findAllUsers = async (req, res) => {
     try {
         const usuarios = await Usuario.findAll({
             attributes: ['cedula', 'nombre', 'apellido', 'email', 'id_rol', 'activo'],
             include: [{
                 model: Rol,
-                as: 'rol', // Debe coincidir con el 'as' definido en index.js
+                as: 'rol', 
                 attributes: ['nombre_rol']
             }]
         });
         res.status(200).send(usuarios);
     } catch (error) {
-        console.error("Error backend listando usuarios:", error); // Log para ver el error real
+        console.error("Error backend listando usuarios:", error); 
         res.status(500).send({ message: error.message || "Error al obtener la lista de usuarios." });
+    }
+};
+
+// --- NUEVA FUNCIÓN DE BÚSQUEDA ---
+exports.searchUsersByCedula = async (req, res) => {
+    try {
+        const { cedula } = req.query;
+        const usuarios = await Usuario.findAll({
+            where: {
+                cedula: { [Op.like]: `${cedula}%` }
+            },
+            limit: 5,
+            attributes: ['cedula', 'nombre', 'apellido', 'email', 'id_rol', 'activo'],
+            include: [{ model: Rol, as: 'rol', attributes: ['nombre_rol'] }]
+        });
+        res.status(200).send(usuarios);
+    } catch (error) {
+        res.status(500).send({ message: "Error en búsqueda: " + error.message });
     }
 };

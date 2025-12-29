@@ -6,10 +6,13 @@ const { verifyToken, isFarmacia } = require('../middlewares/authJwt');
 // GET Inventario
 router.get('/inventario', [verifyToken], farmaciaController.getMedicamentos);
 
-// POST Crear (Plural para seguir estándar REST)
+// BUSCADOR PARA AUTOCOMPLETE (Debe ir antes de las rutas con :id)
+router.get('/medicamentos/search', [verifyToken], farmaciaController.searchMedicamentos);
+
+// POST Crear
 router.post('/medicamentos', [verifyToken, isFarmacia], farmaciaController.crearMedicamento);
 
-// PUT Stock (Unificado)
+// PUT Stock
 router.put('/medicamentos/:id/stock', [verifyToken, isFarmacia], farmaciaController.actualizarStock);
 
 // DELETE Eliminar
