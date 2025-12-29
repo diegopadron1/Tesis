@@ -5,6 +5,7 @@ import '../models/usuario.dart';
 import '../services/auth_service.dart';
 import 'admin_user_create_form.dart'; 
 import 'user_edit_form_modal.dart'; // <--- El modal de edición
+import 'reportes_screen.dart'; // <--- IMPORTACIÓN DEL NUEVO MÓDULO
 
 class AdminBoardScreen extends StatefulWidget {
   const AdminBoardScreen({super.key});
@@ -64,6 +65,18 @@ class _AdminBoardScreenState extends State<AdminBoardScreen> {
             ],
           ),
           actions: [
+            // --- NUEVO BOTÓN PARA CONSULTAR REPORTES ---
+            IconButton(
+              icon: const Icon(Icons.bar_chart, size: 28),
+              tooltip: 'Consultar Reportes',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ReportesScreen()),
+                );
+              },
+            ),
+            // --------------------------------------------
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _fetchUsers,

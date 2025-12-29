@@ -47,6 +47,7 @@ app.use('/api', antecedentesRoutes);
 app.use('/api/farmacia', farmaciaRoutes);
 app.use('/api/enfermeria', enfermeriaRoutes);
 app.use('/api/historia', historiaRoutes);
+app.use('/api', require('./routes/reporte.routes'));
 // Usamos la nueva ruta
 app.use('/api', triajeRoutes); 
 
