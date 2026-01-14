@@ -5,8 +5,13 @@ import '../../models/medicamento.dart';
 
 class DiagnosticoScreen extends StatefulWidget {
   final String cedulaPaciente;
+  final bool readOnly; 
 
-  const DiagnosticoScreen({super.key, required this.cedulaPaciente});
+  const DiagnosticoScreen({
+    super.key, 
+    required this.cedulaPaciente, 
+    this.readOnly = false 
+  });
 
   @override
   State<DiagnosticoScreen> createState() => _DiagnosticoScreenState();
@@ -20,7 +25,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
   final _observacionesCtrl = TextEditingController();
   final _indicacionesCtrl = TextEditingController();
   final _tratamientosCtrl = TextEditingController();
-  final _medicamentosCtrl = TextEditingController(); // Fármaco, Dosis y Frecuencia
+  final _medicamentosCtrl = TextEditingController(); 
   final _examenesCtrl = TextEditingController();
   final _conductaCtrl = TextEditingController();
 
@@ -35,7 +40,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
   // --- SELECCIÓN DE MEDICAMENTO ---
   int? _idMedicamentoSeleccionado; 
-  Medicamento? _medicamentoSeleccionado; 
+  Medicamento? _medicamentoSeleccionado; // <--- VARIABLE AHORA EN USO
 
   @override
   bool get wantKeepAlive => true;
@@ -125,6 +130,8 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
   Widget build(BuildContext context) {
     super.build(context);
 
+    final bool camposDeshabilitados = _formularioBloqueado || widget.readOnly;
+
     if (_isLoading && _idDiagnosticoGuardado == null) return const Center(child: CircularProgressIndicator());
 
     return SingleChildScrollView(
@@ -141,7 +148,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             TextFormField(
               controller: _descripcionCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(labelText: "Diagnóstico Principal *", border: OutlineInputBorder()),
               validator: (v) => v!.isEmpty ? 'Requerido' : null,
@@ -151,7 +158,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
             DropdownButtonFormField<String>(
               key: ValueKey(_tipoDiagnostico),
               initialValue: _tipoDiagnostico,
-              onChanged: _formularioBloqueado ? null : (v) => setState(() => _tipoDiagnostico = v!),
+              onChanged: camposDeshabilitados ? null : (v) => setState(() => _tipoDiagnostico = v!), 
               items: ['Presuntivo', 'Definitivo'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               decoration: const InputDecoration(labelText: "Tipo", border: OutlineInputBorder()),
             ),
@@ -159,7 +166,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             TextFormField(
               controller: _observacionesCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(labelText: "Observaciones Generales", border: OutlineInputBorder()),
             ),
@@ -173,14 +180,13 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             TextFormField(
               controller: _indicacionesCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(labelText: "Indicaciones Inmediatas", border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
 
-            // --- BUSCADOR DE MEDICAMENTOS (AUTOCOMPLETE) ---
-            const Text("Seleccionar Medicamento (Inventario)",
+            const Text("Medicamento Seleccionado (Inventario)",
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
             const SizedBox(height: 8),
             
@@ -189,33 +195,22 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
                   ? option.nombre 
                   : "${option.nombre} (${option.concentracion})",
               optionsBuilder: (TextEditingValue textEditingValue) async {
-                if (textEditingValue.text.isEmpty) return const Iterable<Medicamento>.empty();
-                
+                if (textEditingValue.text.isEmpty || camposDeshabilitados) return const Iterable<Medicamento>.empty();
                 final resultados = await _enfermeriaService.getListaMedicamentos(query: textEditingValue.text);
-                
                 if (resultados.isEmpty) {
-                  return [
-                    Medicamento(
-                      idMedicamento: -1, 
-                      nombre: "Sin existencias en farmacia", 
-                      principioActivo: "",
-                      concentracion: "", 
-                      presentacion: "", 
-                      cantidadDisponible: 0,
-                      stockMinimo: 0, 
-                    )
-                  ];
+                  return [Medicamento(idMedicamento: -1, nombre: "Sin existencias en farmacia", principioActivo: "", concentracion: "", presentacion: "", cantidadDisponible: 0, stockMinimo: 0)];
                 }
                 return resultados;
               },
               onSelected: (Medicamento selection) {
+                if (camposDeshabilitados) return;
                 setState(() {
                   if (selection.idMedicamento == -1) {
                     _idMedicamentoSeleccionado = null;
                     _medicamentoSeleccionado = null;
                   } else {
                     _idMedicamentoSeleccionado = selection.idMedicamento;
-                    _medicamentoSeleccionado = selection;
+                    _medicamentoSeleccionado = selection; // USO DE LA VARIABLE
                   }
                 });
               },
@@ -223,9 +218,9 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
                 return TextFormField(
                   controller: textEditingController,
                   focusNode: focusNode,
-                  enabled: !_formularioBloqueado,
+                  enabled: !camposDeshabilitados, 
                   decoration: const InputDecoration(
-                    labelText: "Buscar fármaco en stock...",
+                    labelText: "Buscar fármaco...",
                     prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(),
                   ),
@@ -233,7 +228,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
               },
             ),
 
-            // --- PANEL INFORMATIVO DE STOCK (SOLO SI SE SELECCIONA UNO VÁLIDO) ---
+            // --- USO DE LA VARIABLE PARA ELIMINAR EL WARNING Y MOSTRAR STOCK ---
             if (_medicamentoSeleccionado != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -243,17 +238,13 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
                 ),
-                child: Column(
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Colors.blueAccent, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Stock: ${_medicamentoSeleccionado!.cantidadDisponible} unidades (${_medicamentoSeleccionado!.presentacion})",
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                        ),
-                      ],
+                    const Icon(Icons.info_outline, color: Colors.blueAccent, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Stock actual: ${_medicamentoSeleccionado!.cantidadDisponible} unidades",
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -264,20 +255,19 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             TextFormField(
               controller: _medicamentosCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(
                 labelText: "Descripción del Medicamento y Dosis *",
-                hintText: "Ej: Ampicilina 500mg, cada 8 horas",
                 border: OutlineInputBorder(),
               ),
-              validator: (v) => v!.isEmpty ? 'Campo obligatorio para la orden' : null,
+              validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
             ),
             const SizedBox(height: 15),
 
             TextFormField(
               controller: _tratamientosCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(labelText: "Tratamientos Sugeridos/Otros", border: OutlineInputBorder()),
             ),
@@ -285,7 +275,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             TextFormField(
               controller: _examenesCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(labelText: "Exámenes Complementarios", border: OutlineInputBorder()),
             ),
@@ -293,40 +283,49 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             TextFormField(
               controller: _conductaCtrl,
-              enabled: !_formularioBloqueado,
+              enabled: !camposDeshabilitados, 
               maxLines: 2,
               decoration: const InputDecoration(labelText: "Conducta a Seguir", border: OutlineInputBorder()),
             ),
 
             const SizedBox(height: 30),
 
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                onPressed: _isLoading 
-                    ? null 
-                    : () {
-                        if (_formularioBloqueado) {
-                          setState(() => _formularioBloqueado = false);
-                        } else {
-                          _procesarGuardado();
-                        }
-                      },
-                icon: _isLoading
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Icon(_formularioBloqueado ? Icons.edit : Icons.save_as),
-                label: Text(
-                  _isLoading ? "Guardando..." : (_formularioBloqueado ? "Editar Diagnóstico" : "Emitir Diagnóstico y Órdenes"),
-                  style: const TextStyle(fontSize: 18),
+            // --- BOTÓN OCULTO PARA EL ESPECIALISTA ---
+            if (!widget.readOnly)
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading 
+                      ? null 
+                      : () {
+                          if (_formularioBloqueado) {
+                            setState(() => _formularioBloqueado = false);
+                          } else {
+                            _procesarGuardado();
+                          }
+                        },
+                  icon: _isLoading
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Icon(_formularioBloqueado ? Icons.edit : Icons.save_as),
+                  label: Text(
+                    _isLoading ? "Guardando..." : (_formularioBloqueado ? "Editar Diagnóstico" : "Emitir Diagnóstico y Órdenes"),
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _formularioBloqueado ? Colors.orange[800] : Colors.blue[800],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _formularioBloqueado ? Colors.orange[800] : Colors.blue[800],
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              )
+            else
+              const Center(
+                child: Text(
+                  "Modo Consulta",
+                  style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                 ),
               ),
-            ),
           ],
         ),
       ),

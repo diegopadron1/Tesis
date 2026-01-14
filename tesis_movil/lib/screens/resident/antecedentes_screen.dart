@@ -3,7 +3,13 @@ import '../../services/antecedentes_service.dart';
 
 class AntecedentesScreen extends StatefulWidget {
   final String cedulaPaciente;
-  const AntecedentesScreen({super.key, required this.cedulaPaciente});
+  final bool readOnly; // 1. Propiedad de solo lectura
+
+  const AntecedentesScreen({
+    super.key, 
+    required this.cedulaPaciente, 
+    this.readOnly = false
+  });
 
   @override
   State<AntecedentesScreen> createState() => _AntecedentesScreenState();
@@ -46,9 +52,10 @@ class _AntecedentesScreenState extends State<AntecedentesScreen> with SingleTick
           child: TabBarView(
             controller: _tabController,
             children: [
-              _FormPersonal(cedula: widget.cedulaPaciente),
-              _FormFamiliar(cedula: widget.cedulaPaciente),
-              _FormHabitos(cedula: widget.cedulaPaciente),
+              // 2. Pasamos el parámetro readOnly a cada formulario hijo
+              _FormPersonal(cedula: widget.cedulaPaciente, readOnly: widget.readOnly),
+              _FormFamiliar(cedula: widget.cedulaPaciente, readOnly: widget.readOnly),
+              _FormHabitos(cedula: widget.cedulaPaciente, readOnly: widget.readOnly),
             ],
           ),
         ),
@@ -62,7 +69,8 @@ class _AntecedentesScreenState extends State<AntecedentesScreen> with SingleTick
 // ==========================================
 class _FormPersonal extends StatefulWidget {
   final String cedula;
-  const _FormPersonal({required this.cedula});
+  final bool readOnly;
+  const _FormPersonal({required this.cedula, required this.readOnly});
   @override
   State<_FormPersonal> createState() => _FormPersonalState();
 }
@@ -82,7 +90,7 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
   @override
   void initState() {
     super.initState();
-    _cargar(); // <--- IMPORTANTE: Cargar datos al entrar
+    _cargar(); 
   }
 
   void _cargar() async {
@@ -95,7 +103,7 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
              _tipoCtrl.text = data['tipo']?.toString() ?? '';
              _detalleCtrl.text = data['detalle']?.toString() ?? '';
              _idGuardado = data['id_antecedente'] ?? data['id'];
-             _isLocked = true; // Bloquear si ya existe
+             _isLocked = true; 
           });
        }
     } catch(e) { 
@@ -125,7 +133,6 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
         if (res['success']) {
            if (_idGuardado == null && res['data'] != null) {
               _idGuardado = res['data']['id_antecedente'] ?? res['data']['id'];
-              debugPrint("✅ Personal ID: $_idGuardado");
            }
            setState(() => _isLocked = true);
         }
@@ -135,18 +142,21 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Mostrar spinner si está cargando datos iniciales
+    final bool bloqueadoTotal = _isLocked || widget.readOnly;
+
     if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        TextField(controller: _tipoCtrl, enabled: !_isLocked, decoration: const InputDecoration(labelText: "Tipo (Alergia, etc)", border: OutlineInputBorder())),
+        TextField(controller: _tipoCtrl, enabled: !bloqueadoTotal, decoration: const InputDecoration(labelText: "Tipo (Alergia, etc)", border: OutlineInputBorder())),
         const SizedBox(height: 15),
-        TextField(controller: _detalleCtrl, enabled: !_isLocked, decoration: const InputDecoration(labelText: "Detalle", border: OutlineInputBorder())),
+        TextField(controller: _detalleCtrl, enabled: !bloqueadoTotal, decoration: const InputDecoration(labelText: "Detalle", border: OutlineInputBorder())),
         const SizedBox(height: 20),
         
-        _buildDynamicButton(_isLoading, _isLocked, "Personal", _guardar, () => setState(() => _isLocked = false))
+        // --- CAMBIO: OCULTAR BOTÓN COMPLETAMENTE SI ES READONLY ---
+        if (!widget.readOnly)
+          _buildDynamicButton(_isLoading, _isLocked, "Personal", _guardar, () => setState(() => _isLocked = false))
       ],
     );
   }
@@ -157,7 +167,8 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
 // ==========================================
 class _FormFamiliar extends StatefulWidget {
   final String cedula;
-  const _FormFamiliar({required this.cedula});
+  final bool readOnly;
+  const _FormFamiliar({required this.cedula, required this.readOnly});
   @override
   State<_FormFamiliar> createState() => _FormFamiliarState();
 }
@@ -179,7 +190,7 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
   @override
   void initState() {
     super.initState();
-    _cargar(); // <--- IMPORTANTE: Cargar datos al entrar
+    _cargar();
   }
 
   void _cargar() async {
@@ -193,12 +204,9 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
              _edadCtrl.text = data['edad']?.toString() ?? '';
              _patologiasCtrl.text = data['patologias']?.toString() ?? '';
              
-             // Validación segura para el Dropdown
              String vivoTraido = data['vivo_muerto']?.toString() ?? 'Vivo';
              if (['Vivo', 'Muerto'].contains(vivoTraido)) {
                _vivo = vivoTraido;
-             } else {
-               _vivo = 'Vivo';
              }
 
              _idGuardado = data['id_familiar'] ?? data['id'];
@@ -232,7 +240,6 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
       if (res['success']) {
          if (_idGuardado == null && res['data'] != null) {
             _idGuardado = res['data']['id_familiar'] ?? res['data']['id'];
-            debugPrint("✅ Familiar ID: $_idGuardado");
          }
          setState(() => _isLocked = true);
       }
@@ -242,26 +249,30 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final bool bloqueadoTotal = _isLocked || widget.readOnly;
+
     if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        TextField(controller: _tipoCtrl, enabled: !_isLocked, decoration: const InputDecoration(labelText: "Parentesco (Ej: Madre)", border: OutlineInputBorder())),
+        TextField(controller: _tipoCtrl, enabled: !bloqueadoTotal, decoration: const InputDecoration(labelText: "Parentesco (Ej: Madre)", border: OutlineInputBorder())),
         const SizedBox(height: 15),
         DropdownButtonFormField<String>(
-          initialValue: _vivo, // Usamos value, no initialValue
+          initialValue: _vivo, 
           decoration: const InputDecoration(labelText: "Estado", border: OutlineInputBorder()),
           items: ['Vivo', 'Muerto'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: _isLocked ? null : (v) => setState(() => _vivo = v!),
+          onChanged: bloqueadoTotal ? null : (v) => setState(() => _vivo = v!),
         ),
         const SizedBox(height: 15),
-        TextField(controller: _edadCtrl, enabled: !_isLocked, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Edad", border: OutlineInputBorder())),
+        TextField(controller: _edadCtrl, enabled: !bloqueadoTotal, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Edad", border: OutlineInputBorder())),
         const SizedBox(height: 15),
-        TextField(controller: _patologiasCtrl, enabled: !_isLocked, maxLines: 2, decoration: const InputDecoration(labelText: "Patologías", border: OutlineInputBorder())),
+        TextField(controller: _patologiasCtrl, enabled: !bloqueadoTotal, maxLines: 2, decoration: const InputDecoration(labelText: "Patologías", border: OutlineInputBorder())),
         const SizedBox(height: 30),
 
-        _buildDynamicButton(_isLoading, _isLocked, "Familiar", _guardar, () => setState(() => _isLocked = false))
+        // --- CAMBIO: OCULTAR BOTÓN COMPLETAMENTE SI ES READONLY ---
+        if (!widget.readOnly)
+          _buildDynamicButton(_isLoading, _isLocked, "Familiar", _guardar, () => setState(() => _isLocked = false))
       ],
     );
   }
@@ -272,7 +283,8 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
 // ==========================================
 class _FormHabitos extends StatefulWidget {
   final String cedula;
-  const _FormHabitos({required this.cedula});
+  final bool readOnly;
+  const _FormHabitos({required this.cedula, required this.readOnly});
   @override
   State<_FormHabitos> createState() => _FormHabitosState();
 }
@@ -297,7 +309,7 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
   @override
   void initState() {
     super.initState();
-    _cargar(); // <--- IMPORTANTE: Cargar datos al entrar
+    _cargar();
   }
 
   void _cargar() async {
@@ -345,7 +357,6 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
       if (res['success']) {
          if (_idGuardado == null && res['data'] != null) {
             _idGuardado = res['data']['id_habito'] ?? res['data']['id'];
-            debugPrint("✅ Habito ID: $_idGuardado");
          }
          setState(() => _isLocked = true);
       }
@@ -355,6 +366,8 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final bool bloqueadoTotal = _isLocked || widget.readOnly;
+
     if (_isLoading && _idGuardado == null) return const Center(child: CircularProgressIndicator());
 
     return ListView(
@@ -362,24 +375,26 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
       children: [
         const Text("Consumos", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal)),
         const SizedBox(height: 15),
-        _buildField(_cafe, "Café", _isLocked),
+        _buildField(_cafe, "Café", bloqueadoTotal),
         const SizedBox(height: 15),
-        _buildField(_tabaco, "Tabaco", _isLocked),
+        _buildField(_tabaco, "Tabaco", bloqueadoTotal),
         const SizedBox(height: 15),
-        _buildField(_alcohol, "Alcohol", _isLocked),
+        _buildField(_alcohol, "Alcohol", bloqueadoTotal),
         const SizedBox(height: 15),
-        _buildField(_drogas, "Drogas", _isLocked),
+        _buildField(_drogas, "Drogas", bloqueadoTotal),
         const SizedBox(height: 30),
         const Text("Estilo de Vida", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal)),
         const SizedBox(height: 15),
-        _buildField(_ocupacion, "Ocupación", _isLocked),
+        _buildField(_ocupacion, "Ocupación", bloqueadoTotal),
         const SizedBox(height: 15),
-        _buildField(_sueno, "Sueño (Ej: 8 horas)", _isLocked),
+        _buildField(_sueno, "Sueño (Ej: 8 horas)", bloqueadoTotal),
         const SizedBox(height: 15),
-        _buildField(_vivienda, "Vivienda", _isLocked),
+        _buildField(_vivienda, "Vivienda", bloqueadoTotal),
         const SizedBox(height: 30),
 
-        _buildDynamicButton(_isLoading, _isLocked, "Hábitos", _guardar, () => setState(() => _isLocked = false))
+        // --- CAMBIO: OCULTAR BOTÓN COMPLETAMENTE SI ES READONLY ---
+        if (!widget.readOnly)
+          _buildDynamicButton(_isLoading, _isLocked, "Hábitos", _guardar, () => setState(() => _isLocked = false))
       ],
     );
   }

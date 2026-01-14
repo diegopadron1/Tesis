@@ -17,12 +17,18 @@ class ResidentHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final AuthService authService = AuthService();
     final String cedula = pacienteData['cedula'].toString();
+    
+    // --- LÓGICA DE BLOQUEO ---
+    // Detectamos el rol que viene desde HomeScreen
+    final String rol = pacienteData['rol'] ?? 'Residente';
+    final bool esSoloLectura = rol == 'Especialista';
 
     return DefaultTabController(
       length: 4, 
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Módulo Residente'),
+          // Título dinámico según el rol
+          title: Text(esSoloLectura ? 'Consulta de Especialista' : 'Módulo Residente'),
           backgroundColor: Colors.blue[700],
           foregroundColor: Colors.white,
           actions: [
@@ -60,10 +66,11 @@ class ResidentHomeScreen extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  MotivoConsultaScreen(cedulaPaciente: cedula), 
-                  ExamenScreen(cedulaPaciente: cedula),
-                  AntecedentesScreen(cedulaPaciente: cedula),
-                  DiagnosticoScreen(cedulaPaciente: cedula),
+                  // PASAMOS readOnly A CADA SCREEN PARA OCULTAR BOTONES
+                  MotivoConsultaScreen(cedulaPaciente: cedula, readOnly: esSoloLectura), 
+                  ExamenScreen(cedulaPaciente: cedula, readOnly: esSoloLectura),
+                  AntecedentesScreen(cedulaPaciente: cedula, readOnly: esSoloLectura),
+                  DiagnosticoScreen(cedulaPaciente: cedula, readOnly: esSoloLectura),
                 ],
               ),
             ),

@@ -10,6 +10,7 @@ import 'nurse/nurse_home_screen.dart';
 import 'historia_clinica_screen.dart';
 import 'consultar_historia_screen.dart'; 
 import '../widgets/patient_card.dart'; 
+import '../theme_notifier.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- LÓGICA DE NOTIFICACIÓN PARA ENFERMERÍA ---
   Future<void> _verificarOrdenesPendientes() async {
     try {
       final ordenes = await _enfermeriaService.getOrdenesPendientes();
@@ -84,17 +84,17 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(15),
         content: Text(
           "📢 ATENCIÓN: Hay $_ordenesPendientesCount órdenes médicas pendientes por administrar.",
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
         ),
-        leading: const Icon(Icons.notification_important, color: Colors.amber, size: 30),
-        backgroundColor: Colors.indigo[700],
+        leading: const Icon(Icons.notification_important, color: Colors.amber, size: 35),
+        backgroundColor: Colors.indigo[900], 
         actions: [
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const NurseHomeScreen()));
             },
-            child: const Text("VER ÓRDENES", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+            child: const Text("VER ÓRDENES", style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
           ),
           TextButton(
             onPressed: () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
@@ -132,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext ctx) {
         return SimpleDialog(
-          title: const Text('Gestionar Salida', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Gestionar Salida', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           children: <Widget>[
             _buildDialogOption(ctx, 'Alta', Icons.check_circle_outline, Colors.green, 'Alta Médica', 'Paciente recuperado'),
@@ -152,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext ctx) {
         return SimpleDialog(
-          title: const Text('Finalizar Caso', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Finalizar Caso', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           children: <Widget>[
             _buildDialogOption(ctx, 'Alta', Icons.assignment_turned_in, Colors.teal, 'Alta Médica', 'Cerrar caso clínico'),
@@ -186,15 +186,15 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color?.withValues(alpha: 0.1) ?? Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color?.withValues(alpha: 0.15) ?? Colors.grey.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
             child: Icon(icono, color: color),
           ),
           const SizedBox(width: 15),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text(sub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+              Text(sub, style: const TextStyle(fontSize: 12, color: Colors.black54)),
             ],
           ),
         ],
@@ -206,10 +206,10 @@ class _HomeScreenState extends State<HomeScreen> {
      return await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Confirmar $seleccion"),
-        content: Text("¿Está seguro de finalizar este paciente como '$seleccion'?\n\nEsta acción cerrará la carpeta."),
+        title: Text("Confirmar $seleccion", style: const TextStyle(color: Colors.black)),
+        content: Text("¿Está seguro de finalizar este paciente como '$seleccion'?\n\nEsta acción cerrará la carpeta.", style: const TextStyle(color: Colors.black87)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar", style: TextStyle(color: Colors.grey))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[900], foregroundColor: Colors.white),
@@ -235,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _mostrarSnackBar(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: color));
   }
 
   void _atenderPaciente(int idTriaje, String ubicacionActual) {
@@ -248,22 +248,22 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (sbContext, setStateDialog) { 
             return AlertDialog(
-              title: const Text("Atender Paciente"),
+              title: const Text("Atender Paciente", style: TextStyle(color: Colors.black)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Ubicación actual: $ubicacionActual", 
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("¿Mover paciente?", style: TextStyle(fontSize: 16)),
+                      const Text("¿Mover paciente?", style: TextStyle(fontSize: 16, color: Colors.black87)),
                       Switch(
                         value: cambiarZona,
-                        activeTrackColor: Colors.blue[800], 
-                        activeThumbColor: Colors.white,
+                        activeTrackColor: Colors.blue[200],
+                        activeThumbColor: Colors.blue[800], 
                         onChanged: (val) {
                           setStateDialog(() {
                             cambiarZona = val;
@@ -278,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.only(top: 15),
                       child: DropdownButtonFormField<String>(
                         isExpanded: true,
+                        style: const TextStyle(color: Colors.black, fontSize: 16),
                         decoration: const InputDecoration(labelText: "Nueva Zona", border: OutlineInputBorder()),
                         items: _zonas.where((z) => z != ubicacionActual).map((z) => DropdownMenuItem(value: z, child: Text(z))).toList(),
                         onChanged: (val) => setStateDialog(() => nuevaZonaSeleccionada = val),
@@ -335,6 +336,8 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(_rol == 'Especialista' ? 'Panel de Especialista' : 'Panel Principal'),
+          backgroundColor: const Color.fromARGB(255, 62, 2, 129),
+          foregroundColor: Colors.white,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh), 
@@ -348,12 +351,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
           bottom: _rol == 'Residente' 
             ? const TabBar(
-                indicatorColor: Colors.white,
-                indicatorWeight: 3,
-                labelStyle: TextStyle(fontWeight: FontWeight.bold),
+                indicatorColor: Colors.amberAccent,
+                indicatorWeight: 5,
+                unselectedLabelColor: Colors.white60,
+                labelColor: Colors.white,
+                labelStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: 0.5),
                 tabs: [
-                  Tab(icon: Icon(Icons.access_time), text: "En Espera"),
-                  Tab(icon: Icon(Icons.medical_services_outlined), text: "En Atención"),
+                  Tab(icon: Icon(Icons.access_time_filled, size: 22), text: "EN ESPERA"),
+                  Tab(icon: Icon(Icons.medical_services, size: 22), text: "EN ATENCIÓN"),
                 ],
               )
             : null,
@@ -368,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ) 
           : (_rol == 'Especialista' 
               ? _buildSpecialistView() 
-              : _buildDefaultWelcome()), // Volvimos al Welcome por defecto para Enfermería
+              : _buildDefaultWelcome()), 
       ),
     );
   }
@@ -382,7 +387,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(esEnEspera ? Icons.check_circle_outline : Icons.playlist_add_check, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
             const SizedBox(height: 20),
-            Text(esEnEspera ? "No hay pacientes en espera" : "No hay pacientes en tratamiento", style: const TextStyle(fontSize: 18, color: Colors.grey)),
+            Text(esEnEspera ? "No hay pacientes en espera" : "No hay pacientes en tratamiento", 
+                style: const TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.w500)),
             if (esEnEspera) ...[
               const SizedBox(height: 20),
               ElevatedButton.icon(
@@ -391,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 icon: const Icon(Icons.person_add),
                 label: const Text("Registrar Nuevo Ingreso"),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700], foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700], foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
               )
             ]
           ],
@@ -411,11 +417,12 @@ class _HomeScreenState extends State<HomeScreen> {
             onDarAlta: () => _finalizarAtencion(p['id_triaje']),
             onAtender: () => _atenderPaciente(p['id_triaje'], p['ubicacion'] ?? 'Desconocida'),
             onTap: () {
-               final datosParaHome = {
+                final datosParaHome = {
                       'cedula': p['cedula_paciente'],
                       'nombre': p['nombre'],
                       'apellido': p['apellido'],
                       'edad': p['edad'],
+                      'rol': _rol, 
                     };
                     Navigator.push(
                       context, 
@@ -435,11 +442,11 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.assignment_turned_in_outlined, size: 80, color: Colors.teal.withValues(alpha: 0.3)),
+            Icon(Icons.assignment_turned_in_outlined, size: 80, color: Colors.teal.withValues(alpha: 0.2)),
             const SizedBox(height: 20),
-            const Text("No hay pacientes pendientes", style: TextStyle(fontSize: 18, color: Colors.grey)),
+            const Text("No hay pacientes pendientes", style: TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            IconButton(icon: const Icon(Icons.refresh), onPressed: _cargarReferidos)
+            IconButton(icon: const Icon(Icons.refresh, size: 30, color: Colors.teal), onPressed: _cargarReferidos)
           ],
         ),
       );
@@ -453,7 +460,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Pacientes Trasladados (${_pacientesReferidos.length})", 
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal[800])),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.teal[900])),
             ],
           ),
         ),
@@ -473,6 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'nombre': p['nombre'],
                       'apellido': p['apellido'],
                       'edad': p['edad'],
+                      'rol': _rol, 
                     };
                     Navigator.push(
                       context, 
@@ -492,110 +500,129 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.local_hospital, size: 100, color: Colors.indigo.withValues(alpha: 0.2)),
-          const SizedBox(height: 20),
-          Text("Bienvenido(a), $_nombreUsuario", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 5),
-          Text("Rol: $_rol", style: const TextStyle(color: Colors.grey, fontSize: 16)),
-          const SizedBox(height: 20),
-          const Text("Sistema de Gestión Hospitalaria Razetti", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+          Icon(Icons.local_hospital, size: 120, color: Colors.indigo.withValues(alpha: 0.15)),
+          const SizedBox(height: 25),
+          Text("Bienvenido(a),", style: TextStyle(fontSize: 20, color: Colors.grey[700])),
+          Text("$_nombreUsuario", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+            decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(20)),
+            child: Text("ROL: $_rol", style: TextStyle(color: Colors.indigo[800], fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 30),
+          const Text("Hospital Dr. Luis Razetti", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.black45, fontSize: 16)),
         ],
       ),
     );
   }
   
   Widget _buildDrawer(BuildContext context) {
-      return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: <Widget>[
-          DrawerHeader(
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.account_circle, size: 50, color: Colors.white),
-                const SizedBox(height: 10),
-                const Text('Bienvenido,', style: TextStyle(color: Colors.white70)),
-                Text(
-                  _nombreUsuario ?? _rol ?? 'Usuario', 
-                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  maxLines: 2, 
-                  overflow: TextOverflow.ellipsis,
+      // Usamos el ValueListenableBuilder para saber si estamos en dark mode
+      return ValueListenableBuilder<ThemeMode>(
+        valueListenable: ThemeNotifier.themeMode,
+        builder: (context, mode, _) {
+          final isDark = mode == ThemeMode.dark;
+          final textColor = isDark ? Colors.white : Colors.black87;
+          final iconColor = isDark ? Colors.white70 : Colors.indigo[800];
+
+          return Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              DrawerHeader(
+                decoration: const BoxDecoration(color: Color.fromARGB(255, 62, 2, 129)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.account_circle, size: 60, color: Colors.white),
+                    const SizedBox(height: 10),
+                    const Text('Sesión iniciada como:', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text(
+                      _nombreUsuario ?? _rol ?? 'Usuario', 
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      maxLines: 2, 
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
+              ),
+              
+              if (_rol == 'Administrador')
+                _buildDrawerItem(Icons.group_add, 'Gestión de Personal', textColor, iconColor, () {
+                    Navigator.pop(context); 
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminBoardScreen()));
+                }),
+                
+              if (_rol == 'Farmacia')
+                _buildDrawerItem(Icons.local_pharmacy, 'Gestión de Inventario', textColor, iconColor, () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmaciaInventoryScreen()));
+                }),
+
+              if (_rol != null && _rol!.toLowerCase().contains('enfermer'))
+                _buildDrawerItem(Icons.health_and_safety, 'Módulo de Enfermería', textColor, iconColor, () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const NurseHomeScreen()));
+                }),
+
+              if (_rol == 'Residente' || _rol == 'Especialista') ...[
+                  if (_rol == 'Residente')
+                  _buildDrawerItem(Icons.person_search, 'Buscar / Registrar Paciente', textColor, iconColor, () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientSearchScreen()));
+                  }),
+                  const Divider(), 
+                  _buildDrawerItem(Icons.edit_note, 'Actualizar Historia Clínica', textColor, iconColor, () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoriaClinicaScreen()));
+                  }),
+                if (_rol == 'Especialista')
+                  _buildDrawerItem(Icons.menu_book, 'Consultar Historial', textColor, iconColor, () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultarHistoriaScreen()));
+                  }),
               ],
-            ),
-          ),
-          
-          if (_rol == 'Administrador')
-            ListTile(
-              leading: const Icon(Icons.group_add),
-              title: const Text('Gestión de Personal'),
-              onTap: () {
-                Navigator.pop(context); 
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminBoardScreen()));
-              },
-            ),
-            
-           if (_rol == 'Farmacia')
-            ListTile(
-              leading: const Icon(Icons.local_pharmacy),
-              title: const Text('Gestión de Inventario'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmaciaInventoryScreen()));
-              },
-            ),
+              
+              const Divider(),
 
-           if (_rol != null && _rol!.toLowerCase().contains('enfermer'))
-             ListTile(
-              leading: const Icon(Icons.health_and_safety),
-              title: const Text('Módulo de Enfermería'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const NurseHomeScreen()));
-              },
-            ),
+              ListTile(
+                leading: Icon(
+                  isDark ? Icons.light_mode : Icons.dark_mode,
+                  color: isDark ? Colors.amber[700] : Colors.indigo[900],
+                ),
+                title: Text(
+                  isDark ? "Cambiar a Modo Claro" : "Cambiar a Modo Oscuro",
+                  style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+                ),
+                trailing: Switch(
+                  value: isDark,
+                  activeThumbColor: Colors.amber[700],
+                  onChanged: (_) => ThemeNotifier.toggleTheme(),
+                ),
+                onTap: () => ThemeNotifier.toggleTheme(),
+              ),
 
-          if (_rol == 'Residente' || _rol == 'Especialista') ...[
-             if (_rol == 'Residente')
+              const Divider(),
               ListTile(
-                leading: const Icon(Icons.person_search), 
-                title: const Text('Buscar / Registrar Paciente'), 
-                onTap: () {
-                 Navigator.pop(context);
-                 Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientSearchScreen()));
-                },
+                leading: const Icon(Icons.exit_to_app, color: Colors.red),
+                title: Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                onTap: _logout,
               ),
-             const Divider(), 
-             ListTile(
-              leading: const Icon(Icons.edit_note, color: Colors.indigo),
-              title: const Text('Actualizar Historia Clínica'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoriaClinicaScreen()));
-              },
-            ),
-            if (_rol == 'Especialista')
-              ListTile(
-                leading: const Icon(Icons.menu_book, color: Colors.teal),
-                title: const Text('Consultar Historial'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultarHistoriaScreen()));
-                },
-              ),
-          ],
-          
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-            title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
-            onTap: _logout,
+            ],
           ),
-        ],
-      ),
+        );
+      }
+    );
+  }
+
+  // Widget helper modificado para aceptar colores condicionales
+  Widget _buildDrawerItem(IconData icon, String title, Color textColor, Color? iconColor, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: textColor, fontSize: 15)),
+      onTap: onTap,
     );
   }
 }
