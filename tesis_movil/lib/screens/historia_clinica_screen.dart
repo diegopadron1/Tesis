@@ -342,7 +342,7 @@ class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: DropdownButtonFormField<String>(
-                  value: _sexoSeleccionado,
+                  initialValue: _sexoSeleccionado,
                   decoration: const InputDecoration(labelText: "Sexo", border: OutlineInputBorder(), filled: true, fillColor: Colors.black12),
                   items: _opcionesSexo.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                   onChanged: (val) => setState(() => _sexoSeleccionado = val),
