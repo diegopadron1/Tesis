@@ -2,6 +2,7 @@ class Paciente {
   final String cedula;
   final String nombre;
   final String apellido;
+  final String sexo;
   final String telefono;
   final String fechaNacimiento;
   final String lugarNacimiento;
@@ -13,6 +14,7 @@ class Paciente {
     required this.cedula,
     required this.nombre,
     required this.apellido,
+    required this.sexo,
     required this.telefono,
     required this.fechaNacimiento,
     required this.lugarNacimiento,
@@ -26,6 +28,7 @@ class Paciente {
       'cedula': cedula,
       'nombre': nombre,
       'apellido': apellido,
+      'sexo': sexo,
       'telefono': telefono,
       'fecha_nacimiento': fechaNacimiento,
       'lugar_nacimiento': lugarNacimiento,

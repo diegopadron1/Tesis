@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/historia_service.dart';
 import '../../services/enfermeria_service.dart';
-import '../../models/medicamento.dart'; // Importante para el tipo Medicamento
+import '../../models/medicamento.dart'; 
 
 class HistoriaClinicaScreen extends StatefulWidget {
   const HistoriaClinicaScreen({super.key});
@@ -269,7 +269,8 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("${p['nombre_apellido'] ?? 'Sin Nombre'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.indigoAccent)),
-                  Text("C.I: ${p['cedula']} • Edad: ${_calcularEdad(p['fecha_nacimiento'])} años"),
+                  Text("C.I: ${p['cedula']} • Sexo: ${p['sexo'] ?? 'No registrado'}"),
+                  Text("Edad: ${_calcularEdad(p['fecha_nacimiento'])} años"),
                 ],
               ),
             ),
@@ -291,6 +292,101 @@ class _HistoriaClinicaScreenState extends State<HistoriaClinicaScreen> {
   }
 }
 
+// --- SECCIÓN DATOS PERSONALES ACTUALIZADA CON SEXO ---
+class _SeccionDatosPersonales extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final Function(Map<String, dynamic>) onSave;
+  const _SeccionDatosPersonales({required this.data, required this.onSave});
+  @override
+  State<_SeccionDatosPersonales> createState() => _SeccionDatosPersonalesState();
+}
+
+class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
+  late TextEditingController _nombreCtrl, _telefonoCtrl, _direccionCtrl, _estadoCivilCtrl, _religionCtrl, _fechaNacCtrl, _lugarNacCtrl;
+  String? _sexoSeleccionado;
+  bool _isEditing = false;
+  final List<String> _opcionesSexo = ['Masculino', 'Femenino', 'Otro'];
+
+  @override
+  void initState() { super.initState(); _initCtrls(); }
+  
+  void _initCtrls() {
+    _nombreCtrl = TextEditingController(text: widget.data['nombre_apellido']?.toString() ?? '');
+    _telefonoCtrl = TextEditingController(text: widget.data['telefono']?.toString() ?? '');
+    _direccionCtrl = TextEditingController(text: widget.data['direccion_actual']?.toString() ?? '');
+    _estadoCivilCtrl = TextEditingController(text: widget.data['Estado_civil']?.toString() ?? '');
+    _religionCtrl = TextEditingController(text: widget.data['Religion']?.toString() ?? '');
+    _fechaNacCtrl = TextEditingController(text: widget.data['fecha_nacimiento']?.toString() ?? '');
+    _lugarNacCtrl = TextEditingController(text: widget.data['lugar_nacimiento']?.toString() ?? '');
+    
+    // Validar que el sexo actual exista en las opciones, sino null
+    final sexoActual = widget.data['sexo']?.toString();
+    _sexoSeleccionado = _opcionesSexo.contains(sexoActual) ? sexoActual : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 2,
+      child: ExpansionTile(
+        leading: const Icon(Icons.person_outline, color: Colors.indigo),
+        title: const Text("Datos Personales", style: TextStyle(fontWeight: FontWeight.bold)),
+        trailing: IconButton(icon: Icon(_isEditing ? Icons.close : Icons.edit), onPressed: () => setState(() { if (_isEditing) _initCtrls(); _isEditing = !_isEditing; })),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _isEditing ? Column(children: [
+              _buildField(_nombreCtrl, "Nombre Completo"),
+              // Dropdown para Sexo
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: DropdownButtonFormField<String>(
+                  value: _sexoSeleccionado,
+                  decoration: const InputDecoration(labelText: "Sexo", border: OutlineInputBorder(), filled: true, fillColor: Colors.black12),
+                  items: _opcionesSexo.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (val) => setState(() => _sexoSeleccionado = val),
+                ),
+              ),
+              _buildField(_telefonoCtrl, "Teléfono"),
+              _buildField(_fechaNacCtrl, "Fecha Nacimiento (AAAA-MM-DD)"),
+              _buildField(_lugarNacCtrl, "Lugar de Nacimiento"),
+              _buildField(_direccionCtrl, "Dirección"),
+              _buildField(_estadoCivilCtrl, "Estado Civil"),
+              _buildField(_religionCtrl, "Religión"),
+              ElevatedButton(onPressed: () {
+                widget.onSave({
+                  'nombre_apellido': _nombreCtrl.text, 
+                  'sexo': _sexoSeleccionado,
+                  'telefono': _telefonoCtrl.text, 
+                  'fecha_nacimiento': _fechaNacCtrl.text, 
+                  'lugar_nacimiento': _lugarNacCtrl.text, 
+                  'direccion_actual': _direccionCtrl.text, 
+                  'Estado_civil': _estadoCivilCtrl.text, 
+                  'Religion': _religionCtrl.text
+                });
+                setState(() => _isEditing = false);
+              }, child: const Text("Actualizar"))
+            ]) : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _info("Nombre", _nombreCtrl.text), 
+              _info("Sexo", _sexoSeleccionado ?? 'No registrado'),
+              _info("F. Nacimiento", _fechaNacCtrl.text), 
+              _info("Lugar", _lugarNacCtrl.text), 
+              _info("Teléfono", _telefonoCtrl.text), 
+              _info("Dirección", _direccionCtrl.text), 
+              _info("Estado Civil", _estadoCivilCtrl.text), 
+              _info("Religión", _religionCtrl.text),
+            ]),
+          )
+        ],
+      ),
+    );
+  }
+  Widget _buildField(TextEditingController ctrl, String label) => Padding(padding: const EdgeInsets.only(bottom: 10), child: TextField(controller: ctrl, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), filled: true, fillColor: Colors.black12)));
+  Widget _info(String l, String v) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("$l: ", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)), Expanded(child: Text(v))]));
+}
+
+// --- RESTO DE SECCIONES (GENÉRICA Y ÓRDENES) ---
 class _SeccionGenerica extends StatefulWidget {
   final String titulo;
   final IconData icon;
@@ -324,7 +420,6 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         leading: Icon(widget.icon, color: tieneDatos ? Colors.indigo : Colors.grey),
         title: Text(widget.titulo, style: TextStyle(fontWeight: FontWeight.bold, color: tieneDatos ? Colors.indigoAccent : Colors.grey[600])),
@@ -388,68 +483,6 @@ class _SeccionGenericaState extends State<_SeccionGenerica> {
   }
 }
 
-class _SeccionDatosPersonales extends StatefulWidget {
-  final Map<String, dynamic> data;
-  final Function(Map<String, dynamic>) onSave;
-  const _SeccionDatosPersonales({required this.data, required this.onSave});
-  @override
-  State<_SeccionDatosPersonales> createState() => _SeccionDatosPersonalesState();
-}
-class _SeccionDatosPersonalesState extends State<_SeccionDatosPersonales> {
-  late TextEditingController _nombreCtrl, _telefonoCtrl, _direccionCtrl, _estadoCivilCtrl, _religionCtrl, _fechaNacCtrl, _lugarNacCtrl;
-  bool _isEditing = false;
-  @override
-  void initState() { super.initState(); _initCtrls(); }
-  void _initCtrls() {
-    _nombreCtrl = TextEditingController(text: widget.data['nombre_apellido']?.toString() ?? '');
-    _telefonoCtrl = TextEditingController(text: widget.data['telefono']?.toString() ?? '');
-    _direccionCtrl = TextEditingController(text: widget.data['direccion_actual']?.toString() ?? '');
-    _estadoCivilCtrl = TextEditingController(text: widget.data['Estado_civil']?.toString() ?? '');
-    _religionCtrl = TextEditingController(text: widget.data['Religion']?.toString() ?? '');
-    _fechaNacCtrl = TextEditingController(text: widget.data['fecha_nacimiento']?.toString() ?? '');
-    _lugarNacCtrl = TextEditingController(text: widget.data['lugar_nacimiento']?.toString() ?? '');
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      child: ExpansionTile(
-        leading: const Icon(Icons.person_outline, color: Colors.indigo),
-        title: const Text("Datos Personales", style: TextStyle(fontWeight: FontWeight.bold)),
-        trailing: IconButton(icon: Icon(_isEditing ? Icons.close : Icons.edit), onPressed: () => setState(() { if (_isEditing) _initCtrls(); _isEditing = !_isEditing; })),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: _isEditing ? Column(children: [
-              _buildField(_nombreCtrl, "Nombre Completo"),
-              _buildField(_telefonoCtrl, "Teléfono"),
-              _buildField(_fechaNacCtrl, "Fecha Nacimiento"),
-              _buildField(_lugarNacCtrl, "Lugar de Nacimiento"),
-              _buildField(_direccionCtrl, "Dirección"),
-              _buildField(_estadoCivilCtrl, "Estado Civil"),
-              _buildField(_religionCtrl, "Religión"),
-              ElevatedButton(onPressed: () {
-                widget.onSave({
-                  'nombre_apellido': _nombreCtrl.text, 'telefono': _telefonoCtrl.text, 'fecha_nacimiento': _fechaNacCtrl.text, 
-                  'lugar_nacimiento': _lugarNacCtrl.text, 'direccion_actual': _direccionCtrl.text, 
-                  'Estado_civil': _estadoCivilCtrl.text, 'Religion': _religionCtrl.text
-                });
-                setState(() => _isEditing = false);
-              }, child: const Text("Actualizar"))
-            ]) : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _info("Nombre", _nombreCtrl.text), _info("F. Nacimiento", _fechaNacCtrl.text), _info("Lugar", _lugarNacCtrl.text), _info("Teléfono", _telefonoCtrl.text), _info("Dirección", _direccionCtrl.text), _info("Estado Civil", _estadoCivilCtrl.text), _info("Religión", _religionCtrl.text),
-            ]),
-          )
-        ],
-      ),
-    );
-  }
-  Widget _buildField(TextEditingController ctrl, String label) => Padding(padding: const EdgeInsets.only(bottom: 10), child: TextField(controller: ctrl, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), filled: true, fillColor: Colors.black12)));
-  Widget _info(String l, String v) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("$l: ", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)), Expanded(child: Text(v))]));
-}
-
-// --- ÓRDENES MÉDICAS CON AUTOCOMPLETE DE MEDICAMENTOS ---
 class _SeccionOrdenesMedicas extends StatefulWidget {
   final List<dynamic> ordenes;
   final HistoriaService service;
@@ -478,7 +511,6 @@ class _SeccionOrdenesMedicasState extends State<_SeccionOrdenesMedicas> {
             child: Column(
               mainAxisSize: MainAxisSize.min, 
               children: [
-                // BUSCADOR AUTOCOMPLETE: Filtra stock > 0 y permite medicamentos externos
                 Autocomplete<Medicamento>(
                   displayStringForOption: (option) => option.idMedicamento == -1 
                       ? option.nombre 

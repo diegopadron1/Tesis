@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Importante para validar solo números
+import 'package:flutter/services.dart'; 
 import 'package:intl/intl.dart'; 
 import '../../models/patient_model.dart'; 
 import '../../services/patient_service.dart';
-// Asegúrate de que este archivo exista en la misma carpeta
 import 'resident_home_screen.dart';
 
 class RegisterPatientScreen extends StatefulWidget {
@@ -31,6 +30,10 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
   final _estadoCivilController = TextEditingController();
   final _religionController = TextEditingController();
 
+  // --- NUEVO ESTADO PARA SEXO ---
+  String? _sexoSeleccionado; // Inicia en null para que no haya selección inicial
+  final List<String> _opcionesSexo = ['Masculino', 'Femenino', 'Otro'];
+
   // --- CONTROLADORES DEL CONTACTO DE EMERGENCIA ---
   final _contactoNombreController = TextEditingController();
   final _contactoApellidoController = TextEditingController();
@@ -41,7 +44,6 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
   @override
   void initState() {
     super.initState();
-    // Si recibimos la cédula desde la búsqueda, la pre-llenamos
     if (widget.cedulaPrevia != null) {
       _cedulaController.text = widget.cedulaPrevia!;
     }
@@ -99,12 +101,12 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
 
     setState(() => _isLoading = true);
 
-    // Creamos el objeto Paciente
     final patientData = Paciente(
       cedula: _cedulaController.text.trim(),
       nombre: _nombreController.text.trim(),
       apellido: _apellidoController.text.trim(),
       telefono: _telefonoController.text.trim(),
+      sexo: _sexoSeleccionado!, // Se usa ! porque el validator asegura que no es null
       fechaNacimiento: _fechaNacimientoController.text,
       lugarNacimiento: _lugarNacimientoController.text.trim(),
       direccionActual: _direccionActualController.text.trim(),
@@ -112,7 +114,6 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
       religion: _religionController.text.isEmpty ? null : _religionController.text,
     );
 
-    // Creamos el objeto ContactoEmergencia
     final contactData = ContactoEmergencia(
       nombre: _contactoNombreController.text.trim(),
       apellido: _contactoApellidoController.text.trim(),
@@ -140,17 +141,16 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
       setState(() => _isLoading = false);
 
       if (result['success']) {
-        // Datos mínimos para el Home
         final newPatientMap = {
           'cedula': _cedulaController.text,
           'nombre': _nombreController.text,
           'apellido': _apellidoController.text,
           'nombre_apellido': "${_nombreController.text} ${_apellidoController.text}",
           'edad': _calcularEdad(_fechaNacimientoController.text),
-          'fecha_nacimiento': _fechaNacimientoController.text
+          'fecha_nacimiento': _fechaNacimientoController.text,
+          'sexo': _sexoSeleccionado // Agregado también al mapa de retorno
         };
 
-        // Navegamos al Home del Residente pasando los datos del nuevo paciente
         Navigator.pushReplacement(
           context, 
           MaterialPageRoute(
@@ -187,7 +187,6 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
                   ),
                 ),
 
-              // --- SECCIÓN 1: DATOS PERSONALES ---
               _buildSectionTitle('1. Datos Personales'),
               const SizedBox(height: 15),
 
@@ -196,7 +195,7 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
                 labelText: 'Cédula de Identidad',
                 keyboardType: TextInputType.number,
                 isRequired: true,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) => value!.length < 4 || value.length > 15 ? 'Cédula inválida' : null,
               ),
               const SizedBox(height: 15),
@@ -208,12 +207,47 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
               ]),
               const SizedBox(height: 15),
 
-              _buildTextFormField(
-                controller: _telefonoController,
-                labelText: 'Teléfono Paciente',
-                keyboardType: TextInputType.phone,
-                isRequired: true,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
+              // --- FILA PARA TELÉFONO Y SEXO ---
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _buildTextFormField(
+                      controller: _telefonoController,
+                      labelText: 'Teléfono',
+                      keyboardType: TextInputType.phone,
+                      isRequired: true,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _sexoSeleccionado,
+                      hint: const Text("Sexo"),
+                      decoration: InputDecoration(
+                        labelText: 'Sexo *',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                      ),
+                      items: _opcionesSexo.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, style: const TextStyle(fontSize: 14)),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) {
+                        setState(() {
+                          _sexoSeleccionado = newValue;
+                        });
+                      },
+                      validator: (value) => value == null ? 'Requerido' : null,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 15),
 
@@ -242,7 +276,6 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
               ]),
               const SizedBox(height: 40),
 
-              // --- SECCIÓN 2: CONTACTO DE EMERGENCIA ---
               _buildSectionTitle('2. Contacto de Emergencia'),
               const SizedBox(height: 15),
 
@@ -256,22 +289,20 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
               _buildTextFormField(controller: _contactoParentescoController, labelText: 'Parentesco', isRequired: true),
               const SizedBox(height: 15),
 
-              // Campo de Teléfono del Contacto
               _buildTextFormField(
                 controller: _contactoTelefonoController, 
                 labelText: 'Teléfono Contacto', 
                 keyboardType: TextInputType.phone,
                 isRequired: true,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
               const SizedBox(height: 15),
 
-              // Campo de Cédula del Contacto
               _buildTextFormField(
                 controller: _contactoCedulaController,
                 labelText: 'Cédula Contacto (Opcional)',
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Solo números
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
               const SizedBox(height: 30),
 
@@ -305,13 +336,13 @@ class _RegisterPatientScreenState extends State<RegisterPatientScreen> {
     int maxLines = 1,
     bool isRequired = false,
     String? Function(String?)? validator,
-    List<TextInputFormatter>? inputFormatters, // Recibimos los formateadores
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      inputFormatters: inputFormatters, // Aplicamos los formateadores
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: isRequired ? '$labelText *' : labelText,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),

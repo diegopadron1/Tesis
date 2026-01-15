@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+// 1. IMPORTACIÓN NECESARIA PARA FORMATEADORES DE TEXTO
+import 'package:flutter/services.dart'; 
 import '../../services/antecedentes_service.dart';
 
 class AntecedentesScreen extends StatefulWidget {
   final String cedulaPaciente;
-  final bool readOnly; // 1. Propiedad de solo lectura
+  final bool readOnly; 
 
   const AntecedentesScreen({
     super.key, 
@@ -52,7 +54,6 @@ class _AntecedentesScreenState extends State<AntecedentesScreen> with SingleTick
           child: TabBarView(
             controller: _tabController,
             children: [
-              // 2. Pasamos el parámetro readOnly a cada formulario hijo
               _FormPersonal(cedula: widget.cedulaPaciente, readOnly: widget.readOnly),
               _FormFamiliar(cedula: widget.cedulaPaciente, readOnly: widget.readOnly),
               _FormHabitos(cedula: widget.cedulaPaciente, readOnly: widget.readOnly),
@@ -154,7 +155,6 @@ class _FormPersonalState extends State<_FormPersonal> with AutomaticKeepAliveCli
         TextField(controller: _detalleCtrl, enabled: !bloqueadoTotal, decoration: const InputDecoration(labelText: "Detalle", border: OutlineInputBorder())),
         const SizedBox(height: 20),
         
-        // --- CAMBIO: OCULTAR BOTÓN COMPLETAMENTE SI ES READONLY ---
         if (!widget.readOnly)
           _buildDynamicButton(_isLoading, _isLocked, "Personal", _guardar, () => setState(() => _isLocked = false))
       ],
@@ -265,12 +265,25 @@ class _FormFamiliarState extends State<_FormFamiliar> with AutomaticKeepAliveCli
           onChanged: bloqueadoTotal ? null : (v) => setState(() => _vivo = v!),
         ),
         const SizedBox(height: 15),
-        TextField(controller: _edadCtrl, enabled: !bloqueadoTotal, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Edad", border: OutlineInputBorder())),
+
+        // --- CAMBIO AQUÍ: VALIDACIÓN DE SOLO NÚMEROS PARA LA EDAD ---
+        TextField(
+          controller: _edadCtrl, 
+          enabled: !bloqueadoTotal, 
+          keyboardType: TextInputType.number, 
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly, // Bloquea cualquier carácter que no sea número
+          ],
+          decoration: const InputDecoration(
+            labelText: "Edad", 
+            border: OutlineInputBorder()
+          ),
+        ),
+
         const SizedBox(height: 15),
         TextField(controller: _patologiasCtrl, enabled: !bloqueadoTotal, maxLines: 2, decoration: const InputDecoration(labelText: "Patologías", border: OutlineInputBorder())),
         const SizedBox(height: 30),
 
-        // --- CAMBIO: OCULTAR BOTÓN COMPLETAMENTE SI ES READONLY ---
         if (!widget.readOnly)
           _buildDynamicButton(_isLoading, _isLocked, "Familiar", _guardar, () => setState(() => _isLocked = false))
       ],
@@ -392,7 +405,6 @@ class _FormHabitosState extends State<_FormHabitos> with AutomaticKeepAliveClien
         _buildField(_vivienda, "Vivienda", bloqueadoTotal),
         const SizedBox(height: 30),
 
-        // --- CAMBIO: OCULTAR BOTÓN COMPLETAMENTE SI ES READONLY ---
         if (!widget.readOnly)
           _buildDynamicButton(_isLoading, _isLocked, "Hábitos", _guardar, () => setState(() => _isLocked = false))
       ],

@@ -10,6 +10,7 @@ import 'nurse/nurse_home_screen.dart';
 import 'historia_clinica_screen.dart';
 import 'consultar_historia_screen.dart'; 
 import '../widgets/patient_card.dart'; 
+import '../widgets/nurse_patient_card.dart'; 
 import '../theme_notifier.dart'; 
 
 class HomeScreen extends StatefulWidget {
@@ -60,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _cargarReferidos();
       } else if (rol != null && rol.toLowerCase().contains('enfermer')) {
         _verificarOrdenesPendientes();
+        _cargarPacientes(); 
       }
     }
   }
@@ -263,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Switch(
                         value: cambiarZona,
                         activeTrackColor: Colors.blue[200],
-                        activeThumbColor: Colors.blue[800], 
+                        activeColor: Colors.blue[800], 
                         onChanged: (val) {
                           setStateDialog(() {
                             cambiarZona = val;
@@ -373,12 +375,99 @@ class _HomeScreenState extends State<HomeScreen> {
             ) 
           : (_rol == 'Especialista' 
               ? _buildSpecialistView() 
-              : _buildDefaultWelcome()), 
+              : (_rol != null && _rol!.toLowerCase().contains('enfermer'))
+                  ? _buildNurseView() // <--- VISTA ENFERMERÍA FILTRADA
+                  : _buildDefaultWelcome()), 
       ),
     );
   }
 
+  // --- VISTA ESPECÍFICA PARA ENFERMERÍA (FILTRADA) ---
+  Widget _buildNurseView() {
+    if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
+    
+    // FILTRO: Solo mostrar pacientes que cumplan dos condiciones:
+    // 1. Tienen una orden médica pendiente (flag 'tiene_orden' que mandamos del backend)
+    // 2. Están siendo atendidos (ignorar 'En Espera') - Opcional según tu flujo, pero recomendable
+    final pacientesFiltrados = _pacientesUrgencias.where((p) {
+        final tieneOrden = p['tiene_orden'] == true;
+        // Si también quieres que solo salgan los que ya pasó el médico ("Siendo Atendido"):
+        // final enAtencion = p['estado'] == 'Siendo Atendido';
+        // return tieneOrden && enAtencion;
+        return tieneOrden;
+    }).toList();
+
+    if (pacientesFiltrados.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 80, color: Colors.green.withValues(alpha: 0.3)),
+            const SizedBox(height: 20),
+            const Text("¡Todo al día!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black54)),
+            const Text("No hay órdenes pendientes por administrar.", style: TextStyle(fontSize: 16, color: Colors.grey)),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+                onPressed: _cargarPacientes,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Actualizar Lista"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.pink, foregroundColor: Colors.white)
+            )
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(15.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.notifications_active, color: Colors.pinkAccent),
+                  const SizedBox(width: 10),
+                  Text("Pendientes de Administración (${pacientesFiltrados.length})", 
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              IconButton(icon: const Icon(Icons.refresh, color: Colors.pink), onPressed: _cargarPacientes)
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _cargarPacientes,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              itemCount: pacientesFiltrados.length,
+              itemBuilder: (context, index) {
+                final p = pacientesFiltrados[index];
+                return NursePatientCard(
+                  paciente: p,
+                  onTap: () {
+                    final String cedula = p['cedula'] ?? p['cedula_paciente'] ?? '';
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => NurseHomeScreen(
+                        initialIndex: 0, 
+                        initialCedula: cedula
+                      )),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTabContent({required List<dynamic> lista, required bool esEnEspera}) {
+    // ... (El resto del código se mantiene igual que antes)
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
     if (lista.isEmpty) {
       return Center(
@@ -518,7 +607,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Widget _buildDrawer(BuildContext context) {
-      // Usamos el ValueListenableBuilder para saber si estamos en dark mode
       return ValueListenableBuilder<ThemeMode>(
         valueListenable: ThemeNotifier.themeMode,
         builder: (context, mode, _) {
@@ -598,7 +686,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 trailing: Switch(
                   value: isDark,
-                  activeThumbColor: Colors.amber[700],
+                  activeColor: Colors.amber[700],
+                  inactiveThumbColor: Colors.indigo[900],
                   onChanged: (_) => ThemeNotifier.toggleTheme(),
                 ),
                 onTap: () => ThemeNotifier.toggleTheme(),
@@ -617,7 +706,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget helper modificado para aceptar colores condicionales
   Widget _buildDrawerItem(IconData icon, String title, Color textColor, Color? iconColor, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: iconColor),

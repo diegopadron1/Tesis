@@ -5,7 +5,14 @@ import '../login_screen.dart';
 import '../../models/medicamento.dart';
 
 class NurseHomeScreen extends StatefulWidget {
-  const NurseHomeScreen({super.key});
+  final int initialIndex; 
+  final String? initialCedula;
+
+  const NurseHomeScreen({
+    super.key, 
+    this.initialIndex = 0, 
+    this.initialCedula
+  });
 
   @override
   State<NurseHomeScreen> createState() => _NurseHomeScreenState();
@@ -14,17 +21,30 @@ class NurseHomeScreen extends StatefulWidget {
 class _NurseHomeScreenState extends State<NurseHomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final AuthService _authService = AuthService();
+  
+  String? _cedulaParaSolicitud;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialIndex);
+    
+    if (widget.initialCedula != null) {
+      _cedulaParaSolicitud = widget.initialCedula;
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _irASolicitudFarmacia(String cedula) {
+    setState(() {
+      _cedulaParaSolicitud = cedula;
+    });
+    _tabController.animateTo(1); 
   }
 
   @override
@@ -59,20 +79,28 @@ class _NurseHomeScreenState extends State<NurseHomeScreen> with SingleTickerProv
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          OrdenesPendientesTab(allowActions: true),
-          SolicitudMedicamentoTab(),
+        children: [
+          OrdenesPendientesTab(
+            allowActions: true, 
+            onSolicitarFarmacia: _irASolicitudFarmacia, 
+          ),
+          SolicitudMedicamentoTab(cedulaPrellenada: _cedulaParaSolicitud),
         ],
       ),
     );
   }
 }
 
-// --- TAB 1: GESTIÓN DE ÓRDENES (DISEÑO MEJORADO) ---
+// --- TAB 1: GESTIÓN DE ÓRDENES ---
 class OrdenesPendientesTab extends StatefulWidget {
   final bool allowActions; 
+  final Function(String)? onSolicitarFarmacia;
 
-  const OrdenesPendientesTab({super.key, this.allowActions = true});
+  const OrdenesPendientesTab({
+    super.key, 
+    this.allowActions = true,
+    this.onSolicitarFarmacia,
+  });
 
   @override
   State<OrdenesPendientesTab> createState() => _OrdenesPendientesTabState();
@@ -150,11 +178,22 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
             itemBuilder: (ctx, i) {
               final orden = list[i];
               final paciente = orden['Paciente'] ?? {};
-              final medInfo = orden['medicamento'] ?? {}; // Datos del fármaco traídos por el include
+              final medInfo = orden['medicamento'] ?? {}; 
               
+              // --- DATOS DEL PACIENTE ---
               final nombreCompleto = paciente['nombre_apellido'] ?? 'Desconocido';
+              final cedulaP = paciente['cedula'] ?? orden['cedula_paciente'] ?? '';
+              final edad = paciente['edad']?.toString() ?? '?'; 
+              
+              // Intentamos obtener la ubicación de varios lugares posibles del JSON
+              final zona = orden['ubicacion'] ?? paciente['ubicacion'] ?? 'Ubicación pendiente';
+
+              // --- DATOS DEL MEDICAMENTO ---
               final nombreFarma = medInfo['nombre'] ?? 'Sin fármaco asignado';
               final concentracion = medInfo['concentracion'] ?? '';
+              final indicaciones = orden['indicaciones_inmediatas'] ?? 'Ninguna';
+              final tratamiento = orden['tratamientos_sugeridos'] ?? 'No especificado';
+              final dosis = orden['requerimiento_medicamentos'] ?? 'Según criterio';
 
               return Card(
                 elevation: 4,
@@ -162,22 +201,51 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 child: ExpansionTile(
                   initiallyExpanded: false, 
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.blue, 
-                    child: Icon(Icons.medication, color: Colors.white)
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.pink[700], 
+                    child: const Icon(Icons.person, color: Colors.white),
                   ),
+                  // TÍTULO: Nombre del Paciente
                   title: Text(
-                    nombreFarma, 
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.blue),
+                    nombreCompleto, 
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.pink[800]),
                   ),
+                  // SUBTÍTULO: Datos demográficos y Zona
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Paciente: $nombreCompleto", style: const TextStyle(fontSize: 14, color: Colors.black87)),
-                      const SizedBox(height: 2),
-                      Text(
-                        "Dosis: ${orden['requerimiento_medicamentos']}", 
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.pink)
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.badge, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text("C.I: $cedulaP", style: const TextStyle(fontSize: 13)),
+                          const SizedBox(width: 10),
+                          Icon(Icons.cake, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text("$edad años", style: const TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // ZONA DESTACADA
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3))
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on, size: 14, color: Colors.blue),
+                            const SizedBox(width: 4),
+                            Text(
+                              zona, 
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue[800])
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -186,19 +254,70 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
                       padding: const EdgeInsets.all(16),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: Colors.grey[50], 
                         borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(15), bottomRight: Radius.circular(15))
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _infoRow("C.I. Paciente:", orden['cedula_paciente']),
-                          _infoRow("Concentración:", concentracion),
-                          _infoRow("Indicaciones Inmediatas:", orden['indicaciones_inmediatas']),
-                          _infoRow("Tratamientos Sugeridos:", orden['tratamientos_sugeridos']),
+                          // NOMBRE DEL MEDICAMENTO + CONCENTRACIÓN
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.medication_liquid, color: Colors.blue, size: 28),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 16, color: Colors.blue),
+                                    children: [
+                                      TextSpan(
+                                        text: nombreFarma.toString().toUpperCase(), 
+                                        style: const TextStyle(fontWeight: FontWeight.w900)
+                                      ),
+                                      if (concentracion.isNotEmpty)
+                                        TextSpan(
+                                          text: "  $concentracion", // Concentración al lado
+                                          style: TextStyle(fontWeight: FontWeight.normal, color: Colors.blue[800], fontSize: 15)
+                                        ),
+                                    ]
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 20, color: Colors.blueAccent),
+                          
+                          // Resto de datos abajo
+                          _infoRow("Frecuencia/Dosis:", dosis),
+                          _infoRow("Indicaciones:", indicaciones),
+                          _infoRow("Tratamiento Sugerido:", tratamiento),
+                          
                           const Divider(),
                           if (widget.allowActions) ...[
-                            const SizedBox(height: 10),
+                            // BOTÓN DE SOLICITUD A FARMACIA
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  if (widget.onSolicitarFarmacia != null && cedulaP.isNotEmpty) {
+                                    widget.onSolicitarFarmacia!(cedulaP);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No se encontró cédula válida")));
+                                  }
+                                },
+                                icon: const Icon(Icons.add_shopping_cart, size: 18),
+                                label: const Text("Solicitar a Farmacia"),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.pink[700],
+                                  side: BorderSide(color: Colors.pink[700]!),
+                                  padding: const EdgeInsets.symmetric(vertical: 12)
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+                            
+                            // BOTONES DE ACCIÓN
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
@@ -215,7 +334,7 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
                                 ElevatedButton.icon(
                                   onPressed: () => _actualizarOrden(orden['id_orden'], 'COMPLETADA'),
                                   icon: const Icon(Icons.check_circle, size: 18),
-                                  label: const Text("Confirmar"),
+                                  label: const Text("Suministrado"),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green[700], 
                                     foregroundColor: Colors.white
@@ -240,15 +359,23 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
   Widget _infoRow(String label, String? value) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(fontSize: 14, color: Colors.black87),
-          children: [
-            TextSpan(text: "$label ", style: const TextStyle(fontWeight: FontWeight.bold)),
-            TextSpan(text: value),
-          ],
-        ),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.arrow_right, size: 20, color: Colors.grey),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                children: [
+                  TextSpan(text: "$label ", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -256,7 +383,9 @@ class _OrdenesPendientesTabState extends State<OrdenesPendientesTab> {
 
 // --- TAB 2: SOLICITAR MEDICAMENTO ---
 class SolicitudMedicamentoTab extends StatefulWidget {
-  const SolicitudMedicamentoTab({super.key});
+  final String? cedulaPrellenada; 
+
+  const SolicitudMedicamentoTab({super.key, this.cedulaPrellenada});
 
   @override
   State<SolicitudMedicamentoTab> createState() => _SolicitudMedicamentoTabState();
@@ -279,6 +408,19 @@ class _SolicitudMedicamentoTabState extends State<SolicitudMedicamentoTab> {
   void initState() {
     super.initState();
     _cargarMedicamentos();
+    if (widget.cedulaPrellenada != null) {
+      _cedulaCtrl.text = widget.cedulaPrellenada!;
+      Future.delayed(Duration.zero, () => _buscarOrdenAutomatica(widget.cedulaPrellenada!));
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SolicitudMedicamentoTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.cedulaPrellenada != oldWidget.cedulaPrellenada && widget.cedulaPrellenada != null) {
+      _cedulaCtrl.text = widget.cedulaPrellenada!;
+      _buscarOrdenAutomatica(widget.cedulaPrellenada!);
+    }
   }
 
   void _cargarMedicamentos() async {
@@ -308,10 +450,11 @@ class _SolicitudMedicamentoTabState extends State<SolicitudMedicamentoTab> {
           SnackBar(
             content: Text("Orden detectada: ${data['nombre']}. Dosis: ${data['dosis_recetada']}"),
             backgroundColor: Colors.blue[700],
+            duration: const Duration(seconds: 4),
           )
         );
       } catch (e) {
-        setState(() => _isSearchingOrder = false);
+        if(mounted) setState(() => _isSearchingOrder = false);
       }
     } else {
       if(mounted) setState(() => _isSearchingOrder = false);
