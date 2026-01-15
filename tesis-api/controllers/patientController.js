@@ -28,6 +28,7 @@ exports.validatePatientRegistration = [
     check('paciente.cedula', 'La cédula es obligatoria.').isLength({ min: 5, max: 15 }).isNumeric(),
     check('paciente.nombre', 'El nombre es obligatorio.').notEmpty(),
     check('paciente.apellido', 'El apellido es obligatorio.').notEmpty(),
+    check('paciente.sexo', 'El sexo es obligatorio y debe ser válido.').isIn(['Masculino', 'Femenino', 'Otro']),
     check('paciente.telefono', 'El teléfono es obligatorio.').isNumeric().isLength({ min: 10, max: 15 }),
     check('paciente.fecha_nacimiento', 'Fecha de nacimiento obligatoria.').isISO8601().toDate(),
     check('paciente.lugar_nacimiento', 'Lugar de nacimiento obligatorio.').notEmpty(),
@@ -77,6 +78,7 @@ exports.registerPatient = async (req, res) => {
         await Paciente.create({
             cedula: paciente.cedula,
             nombre_apellido: nombreCompletoPaciente,
+            sexo: paciente.sexo, 
             edad: edadCalculada,
             telefono: paciente.telefono,
             fecha_nacimiento: paciente.fecha_nacimiento,

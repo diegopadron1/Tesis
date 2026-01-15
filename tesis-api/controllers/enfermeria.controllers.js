@@ -7,29 +7,34 @@ const MovimientoInventario = db.MovimientoInventario;
 const Paciente = db.Paciente;
 const Triaje = db.Triaje; 
 
-// 1. Obtener Órdenes Médicas Pendientes (LÓGICA CORREGIDA SIN ASOCIACIÓN)
+// 1. Obtener Órdenes Médicas Pendientes (CORREGIDO PARA INCLUIR UBICACIÓN)
 exports.getOrdenesPendientes = async (req, res) => {
     try {
-        // PASO A: Buscar qué carpetas tienen pacientes "Siendo Atendido"
+        // PASO A: Buscar carpetas "Siendo Atendido" y TRAER LA UBICACIÓN
         const triajesEnAtencion = await Triaje.findAll({
             where: { estado: 'Siendo Atendido' },
-            attributes: ['id_carpeta'],
+            attributes: ['id_carpeta', 'ubicacion'], // <--- IMPORTANTE: Traemos la ubicación
             raw: true
         });
 
-        // Extraemos solo los IDs de las carpetas
-        const idsCarpetasActivas = triajesEnAtencion.map(t => t.id_carpeta);
-
-        // Si no hay nadie siendo atendido, devolvemos lista vacía de inmediato
-        if (idsCarpetasActivas.length === 0) {
+        if (triajesEnAtencion.length === 0) {
             return res.status(200).send([]);
         }
 
-        // PASO B: Buscar las órdenes que pertenezcan a esas carpetas
+        // Creamos un diccionario/mapa para acceso rápido: { id_carpeta: 'Pasillo 1', ... }
+        const mapaUbicaciones = {};
+        const idsCarpetasActivas = [];
+
+        triajesEnAtencion.forEach(t => {
+            mapaUbicaciones[t.id_carpeta] = t.ubicacion;
+            idsCarpetasActivas.push(t.id_carpeta);
+        });
+
+        // PASO B: Buscar las órdenes
         const ordenes = await OrdenesMedicas.findAll({
             where: { 
                 estatus: 'PENDIENTE',
-                id_carpeta: { [Op.in]: idsCarpetasActivas } // Solo carpetas en atención
+                id_carpeta: { [Op.in]: idsCarpetasActivas } 
             },
             include: [
                 { model: Paciente },
@@ -42,7 +47,24 @@ exports.getOrdenesPendientes = async (req, res) => {
             order: [['createdAt', 'ASC']]
         });
 
-        res.status(200).send(ordenes);
+        // PASO C: Unir la orden con su ubicación correspondiente
+        const resultados = ordenes.map(orden => {
+            const ordenJson = orden.toJSON(); // Convertimos a objeto plano JS
+            
+            // Inyectamos la ubicación buscando en el mapa que creamos arriba
+            ordenJson.ubicacion = mapaUbicaciones[orden.id_carpeta] || 'Ubicación no asignada';
+            
+            // Aseguramos que los datos del paciente estén accesibles fácilmente si el frontend lo requiere plano
+            if(ordenJson.Paciente) {
+                ordenJson.cedula_paciente = ordenJson.Paciente.cedula; 
+                // A veces sequelize devuelve 'Paciente' con mayúscula, aseguramos minúscula si es necesario
+            }
+
+            return ordenJson;
+        });
+
+        res.status(200).send(resultados);
+
     } catch (error) {
         console.error("Error al obtener órdenes filtradas:", error);
         res.status(500).send({ message: "Error al obtener órdenes." });

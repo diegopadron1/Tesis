@@ -2,7 +2,8 @@ const db = require('../models');
 const Triaje = db.Triaje;
 const Paciente = db.Paciente;
 const Carpeta = db.Carpeta; 
-const OrdenesMedicas = db.OrdenesMedicas; // <--- NUEVA IMPORTACIÓN
+const OrdenesMedicas = db.OrdenesMedicas; 
+const Medicamento = db.Medicamento; // <--- IMPORANT: Added Medicamento model
 const Sequelize = db.Sequelize;
 const { Op } = require("sequelize"); 
 
@@ -57,10 +58,10 @@ exports.createTriaje = async (req, res) => {
     }
 };
 
-// ... (getTriajesActivos y getPacientesReferidos se mantienen igual)
-
+// 2. Obtener Triajes Activos (CORREGIDO: TRAE MEDICAMENTOS)
 exports.getTriajesActivos = async (req, res) => {
     try {
+        // PASO 1: Obtener los triajes activos
         const listaTriaje = await Triaje.findAll({
             where: {
                 estado: { [Sequelize.Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] } 
@@ -83,10 +84,47 @@ exports.getTriajesActivos = async (req, res) => {
             ]
         });
 
+        // PASO 2: Recopilar los IDs de las carpetas
+        const carpetaIds = listaTriaje
+            .map(t => t.id_carpeta)
+            .filter(id => id !== null && id !== undefined);
+
+        // PASO 3: Buscar las órdenes médicas PENDIENTES con sus MEDICAMENTOS
+        let mapaOrdenes = {};
+        
+        if (carpetaIds.length > 0) {
+            const ordenesEncontradas = await OrdenesMedicas.findAll({
+                where: {
+                    id_carpeta: { [Op.in]: carpetaIds },
+                    estatus: 'PENDIENTE'
+                },
+                attributes: ['id_carpeta', 'indicaciones_inmediatas', 'tratamientos_sugeridos'],
+                include: [{
+                    model: Medicamento, // <--- CAMBIO CLAVE: Incluir Medicamento
+                    as: 'medicamento',  // Debe coincidir con el alias en models/index.js
+                    attributes: ['nombre', 'concentracion']
+                }],
+                order: [['createdAt', 'DESC']] // Traer las más recientes primero
+            });
+
+            // Llenamos el mapa con la orden más reciente
+            ordenesEncontradas.forEach(orden => {
+                if (!mapaOrdenes[orden.id_carpeta]) {
+                    mapaOrdenes[orden.id_carpeta] = orden;
+                }
+            });
+        }
+
+        // PASO 4: Combinar los datos
         const respuesta = listaTriaje.map(t => {
             const data = t.toJSON(); 
             const pacienteData = data.Paciente || data.paciente || {};
             const nombreCompleto = pacienteData.nombre_apellido || 'Desconocido';
+            
+            // Buscamos si existe orden para este triaje
+            const ordenData = mapaOrdenes[data.id_carpeta];
+            const medData = ordenData ? ordenData.medicamento : null;
+
             return {
                 id_triaje: data.id_triaje,
                 cedula_paciente: data.cedula_paciente,
@@ -101,10 +139,20 @@ exports.getTriajesActivos = async (req, res) => {
                 apellido: nombreCompleto.split(' ').slice(1).join(' '),
                 edad: pacienteData.edad || '?',
                 residente_atendiendo: data.residente_atendiendo || null,
+                
+                // DATOS MÉDICOS INYECTADOS (Incluyendo flag para frontend)
+                tiene_orden: !!ordenData, // true si existe orden, false si no
+                nombre_medicamento: medData ? medData.nombre : null,
+                concentracion: medData ? medData.concentracion : null,
+                indicaciones_inmediatas: ordenData ? ordenData.indicaciones_inmediatas : "Ninguna registrada",
+                tratamientos_sugeridos: ordenData ? ordenData.tratamientos_sugeridos : "Pendiente"
             };
         });
+
         res.status(200).send(respuesta);
+
     } catch (error) {
+        console.error("Error en getTriajesActivos:", error);
         res.status(500).send({ message: "Error al obtener lista: " + error.message });
     }
 };

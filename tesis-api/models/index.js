@@ -62,9 +62,8 @@ db.AntecedentesFamiliares = require("./AntecedentesFamiliares.js")(sequelize, Se
 db.HabitosPsicobiologicos = require("./HabitosPsicobiologicos.js")(sequelize, Sequelize);
 db.ContactoEmergencia = require("./ContactoEmergencia.js")(sequelize, Sequelize);
 
-// --- AGREGADO: NUEVO MODELO DE TRIAJE ---
+// --- NUEVO MODELO DE TRIAJE ---
 db.Triaje = require("./Triaje.js")(sequelize, Sequelize);
-// ----------------------------------------
 
 // Farmacia
 db.Medicamento = require("./Medicamento.js")(sequelize, Sequelize);
@@ -105,10 +104,16 @@ if (db.Paciente && db.Carpeta) {
     db.Paciente.hasOne(db.ContactoEmergencia, { foreignKey: 'cedula_paciente' });
     db.ContactoEmergencia.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
 
-    // 4. Paciente <-> Triaje (Relación 1 a Muchos, un paciente puede tener varios triajes en el tiempo)
+    // 4. RELACIONES DE TRIAJE (CORREGIDAS)
     if (db.Triaje) {
+        // Paciente <-> Triaje
         db.Paciente.hasMany(db.Triaje, { foreignKey: 'cedula_paciente' });
         db.Triaje.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
+
+        // --- CORRECCIÓN AQUÍ: Faltaba esta relación para que funcione el include: [model: Carpeta] ---
+        db.Carpeta.hasOne(db.Triaje, { foreignKey: 'id_carpeta' });
+        db.Triaje.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
+        // ---------------------------------------------------------------------------------------------
     }
 
     // 5. Carpeta <-> Hijos (Motivo, Diagnóstico, etc.)
@@ -137,24 +142,23 @@ if (db.Paciente && db.Carpeta) {
     db.HabitosPsicobiologicos.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 
     // ==========================================
-    // 6. RELACIONES DE FARMACIA Y ÓRDENES (NUEVAS)
+    // 6. RELACIONES DE FARMACIA Y ÓRDENES
     // ==========================================
     
     db.OrdenesMedicas.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente', targetKey: 'cedula' });
     db.Paciente.hasMany(db.OrdenesMedicas, { foreignKey: 'cedula_paciente', sourceKey: 'cedula' });
 
-    // Vincular Órdenes con Medicamentos (Para ver el nombre del fármaco recetado)
+    // Vincular Órdenes con Medicamentos
     db.OrdenesMedicas.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento', as: 'medicamento' });
     db.Medicamento.hasMany(db.OrdenesMedicas, { foreignKey: 'id_medicamento' });
-    // -----------------------------------------------------------------------------
 
-    // Vincular Órdenes con Solicitudes para trazabilidad
+    // Vincular Órdenes con Solicitudes
     if (db.OrdenesMedicas && db.SolicitudMedicamento) {
         db.OrdenesMedicas.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_orden', as: 'solicitudes' });
         db.SolicitudMedicamento.belongsTo(db.OrdenesMedicas, { foreignKey: 'id_orden' });
     }
 
-    // Vincular Solicitudes con el Inventario para saber qué se pidió
+    // Vincular Solicitudes con el Inventario
     if (db.SolicitudMedicamento && db.Medicamento) {
         db.SolicitudMedicamento.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento', as: 'medicamento' });
         db.Medicamento.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_medicamento' });

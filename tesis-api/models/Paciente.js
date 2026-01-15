@@ -11,6 +11,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(200),
             allowNull: false
         },
+        sexo: {
+            type: DataTypes.ENUM('Masculino', 'Femenino', 'Otro'),
+            allowNull: false,
+            defaultValue: 'Otro' // Opcional
+        },
         edad: { // Campo calculado por el controlador
             type: DataTypes.INTEGER,
             allowNull: false
