@@ -265,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Switch(
                         value: cambiarZona,
                         activeTrackColor: Colors.blue[200],
-                        activeColor: Colors.blue[800], 
+                        activeThumbColor: Colors.blue[800], 
                         onChanged: (val) {
                           setStateDialog(() {
                             cambiarZona = val;
@@ -686,7 +686,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 trailing: Switch(
                   value: isDark,
-                  activeColor: Colors.amber[700],
+                  activeThumbColor: Colors.amber[700],
                   inactiveThumbColor: Colors.indigo[900],
                   onChanged: (_) => ThemeNotifier.toggleTheme(),
                 ),
