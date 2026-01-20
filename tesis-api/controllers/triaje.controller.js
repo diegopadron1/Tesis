@@ -3,7 +3,8 @@ const Triaje = db.Triaje;
 const Paciente = db.Paciente;
 const Carpeta = db.Carpeta; 
 const OrdenesMedicas = db.OrdenesMedicas; 
-const Medicamento = db.Medicamento; // <--- IMPORANT: Added Medicamento model
+const Medicamento = db.Medicamento;
+const SolicitudMedicamento = db.SolicitudMedicamento; 
 const Sequelize = db.Sequelize;
 const { Op } = require("sequelize"); 
 
@@ -58,7 +59,7 @@ exports.createTriaje = async (req, res) => {
     }
 };
 
-// 2. Obtener Triajes Activos (CORREGIDO: TRAE MEDICAMENTOS)
+// 2. Obtener Triajes Activos (CORREGIDO Y OPTIMIZADO)
 exports.getTriajesActivos = async (req, res) => {
     try {
         // PASO 1: Obtener los triajes activos
@@ -89,7 +90,7 @@ exports.getTriajesActivos = async (req, res) => {
             .map(t => t.id_carpeta)
             .filter(id => id !== null && id !== undefined);
 
-        // PASO 3: Buscar las órdenes médicas PENDIENTES con sus MEDICAMENTOS
+        // PASO 3: Buscar las órdenes médicas PENDIENTES con sus MEDICAMENTOS y SOLICITUDES
         let mapaOrdenes = {};
         
         if (carpetaIds.length > 0) {
@@ -98,13 +99,21 @@ exports.getTriajesActivos = async (req, res) => {
                     id_carpeta: { [Op.in]: carpetaIds },
                     estatus: 'PENDIENTE'
                 },
-                attributes: ['id_carpeta', 'indicaciones_inmediatas', 'tratamientos_sugeridos'],
-                include: [{
-                    model: Medicamento, // <--- CAMBIO CLAVE: Incluir Medicamento
-                    as: 'medicamento',  // Debe coincidir con el alias en models/index.js
-                    attributes: ['nombre', 'concentracion']
-                }],
-                order: [['createdAt', 'DESC']] // Traer las más recientes primero
+                attributes: ['id_orden', 'id_carpeta', 'indicaciones_inmediatas', 'tratamientos_sugeridos'],
+                include: [
+                    {
+                        model: Medicamento,
+                        as: 'medicamento',  // Alias correcto según models/index.js
+                        attributes: ['nombre', 'concentracion']
+                    },
+                    {
+                        model: SolicitudMedicamento,
+                        as: 'solicitudes', // Alias correcto según models/index.js
+                        required: false,
+                        attributes: ['estatus'] // AQUÍ ESTÁ LA COLUMNA QUE DEBE EXISTIR EN BD
+                    }
+                ],
+                order: [['createdAt', 'DESC']]
             });
 
             // Llenamos el mapa con la orden más reciente
@@ -124,6 +133,13 @@ exports.getTriajesActivos = async (req, res) => {
             // Buscamos si existe orden para este triaje
             const ordenData = mapaOrdenes[data.id_carpeta];
             const medData = ordenData ? ordenData.medicamento : null;
+            
+            // LÓGICA DE ESTADO FARMACIA
+            let estadoFarmacia = null;
+            if (ordenData && ordenData.solicitudes && ordenData.solicitudes.length > 0) {
+                // Si existe solicitud, tomamos el estado de la primera (la más reciente si ordenamos bien)
+                estadoFarmacia = ordenData.solicitudes[0].estatus || 'PENDIENTE';
+            }
 
             return {
                 id_triaje: data.id_triaje,
@@ -140,8 +156,9 @@ exports.getTriajesActivos = async (req, res) => {
                 edad: pacienteData.edad || '?',
                 residente_atendiendo: data.residente_atendiendo || null,
                 
-                // DATOS MÉDICOS INYECTADOS (Incluyendo flag para frontend)
-                tiene_orden: !!ordenData, // true si existe orden, false si no
+                // DATOS MÉDICOS INYECTADOS
+                tiene_orden: !!ordenData,
+                estado_farmacia: estadoFarmacia, // Nuevo dato para el frontend
                 nombre_medicamento: medData ? medData.nombre : null,
                 concentracion: medData ? medData.concentracion : null,
                 indicaciones_inmediatas: ordenData ? ordenData.indicaciones_inmediatas : "Ninguna registrada",

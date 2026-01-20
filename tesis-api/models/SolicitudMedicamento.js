@@ -5,6 +5,16 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true,
             autoIncrement: true
         },
+        // --- NUEVO: Vinculación con la Orden Médica (CRUCIAL) ---
+        id_orden: {
+            type: DataTypes.INTEGER,
+            allowNull: true, 
+            references: {
+                model: 'OrdenesMedicas', // Asegúrate que coincida con el tableName de Ordenes
+                key: 'id_orden'
+            }
+        },
+        // --------------------------------------------------------
         cedula_paciente: {
             type: DataTypes.STRING,
             allowNull: false
@@ -19,9 +29,16 @@ module.exports = (sequelize, DataTypes) => {
         },
         // Quién hizo la solicitud (La enfermera)
         id_usuario: { 
-            type: DataTypes.STRING, // <--- CORRECCIÓN: Cambiado de INTEGER a STRING
+            type: DataTypes.STRING, 
             allowNull: false
         },
+        // --- NUEVO: El campo que faltaba y daba error ---
+        estatus: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            defaultValue: 'PENDIENTE' // Valores posibles: 'PENDIENTE', 'LISTO', 'ENTREGADO'
+        },
+        // ------------------------------------------------
         fecha_solicitud: {
             type: DataTypes.DATE,
             defaultValue: DataTypes.NOW

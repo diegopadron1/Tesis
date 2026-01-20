@@ -34,6 +34,7 @@ db.connectDB = async () => {
     try {
         await sequelize.authenticate();
         console.log('✅ Conexión a PostgreSQL establecida.');
+        // alter: true intenta actualizar las tablas si faltan columnas.
         await sequelize.sync({ alter: true }); 
         console.log('✅ Base de datos sincronizada.');
     } catch (error) {
@@ -62,10 +63,10 @@ db.AntecedentesFamiliares = require("./AntecedentesFamiliares.js")(sequelize, Se
 db.HabitosPsicobiologicos = require("./HabitosPsicobiologicos.js")(sequelize, Sequelize);
 db.ContactoEmergencia = require("./ContactoEmergencia.js")(sequelize, Sequelize);
 
-// --- NUEVO MODELO DE TRIAJE ---
+// --- TRIAJE ---
 db.Triaje = require("./Triaje.js")(sequelize, Sequelize);
 
-// Farmacia
+// --- FARMACIA ---
 db.Medicamento = require("./Medicamento.js")(sequelize, Sequelize);
 db.MovimientoInventario = require("./MovimientoInventario.js")(sequelize, Sequelize);
 db.SolicitudMedicamento = require("./SolicitudMedicamento.js")(sequelize, Sequelize);
@@ -104,19 +105,18 @@ if (db.Paciente && db.Carpeta) {
     db.Paciente.hasOne(db.ContactoEmergencia, { foreignKey: 'cedula_paciente' });
     db.ContactoEmergencia.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
 
-    // 4. RELACIONES DE TRIAJE (CORREGIDAS)
+    // 4. RELACIONES DE TRIAJE
     if (db.Triaje) {
         // Paciente <-> Triaje
         db.Paciente.hasMany(db.Triaje, { foreignKey: 'cedula_paciente' });
         db.Triaje.belongsTo(db.Paciente, { foreignKey: 'cedula_paciente' });
 
-        // --- CORRECCIÓN AQUÍ: Faltaba esta relación para que funcione el include: [model: Carpeta] ---
+        // Carpeta <-> Triaje
         db.Carpeta.hasOne(db.Triaje, { foreignKey: 'id_carpeta' });
         db.Triaje.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
-        // ---------------------------------------------------------------------------------------------
     }
 
-    // 5. Carpeta <-> Hijos (Motivo, Diagnóstico, etc.)
+    // 5. Carpeta <-> Hijos
     db.Carpeta.hasOne(db.MotivoConsulta, { foreignKey: 'id_carpeta' });
     db.MotivoConsulta.belongsTo(db.Carpeta, { foreignKey: 'id_carpeta' });
 
@@ -152,7 +152,7 @@ if (db.Paciente && db.Carpeta) {
     db.OrdenesMedicas.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento', as: 'medicamento' });
     db.Medicamento.hasMany(db.OrdenesMedicas, { foreignKey: 'id_medicamento' });
 
-    // Vincular Órdenes con Solicitudes
+    // Vincular Órdenes con Solicitudes (Para saber el estado en la tarjeta de enfermería)
     if (db.OrdenesMedicas && db.SolicitudMedicamento) {
         db.OrdenesMedicas.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_orden', as: 'solicitudes' });
         db.SolicitudMedicamento.belongsTo(db.OrdenesMedicas, { foreignKey: 'id_orden' });
@@ -162,6 +162,11 @@ if (db.Paciente && db.Carpeta) {
     if (db.SolicitudMedicamento && db.Medicamento) {
         db.SolicitudMedicamento.belongsTo(db.Medicamento, { foreignKey: 'id_medicamento', as: 'medicamento' });
         db.Medicamento.hasMany(db.SolicitudMedicamento, { foreignKey: 'id_medicamento' });
+    }
+
+    // Vincular Solicitudes con el Usuario (Para saber qué enfermera lo pidió)
+    if (db.SolicitudMedicamento && db.user) {
+        db.SolicitudMedicamento.belongsTo(db.user, { foreignKey: 'id_usuario', as: 'usuario_solicitante' });
     }
 }
 

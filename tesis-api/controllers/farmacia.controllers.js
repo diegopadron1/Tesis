@@ -1,6 +1,8 @@
 const db = require('../models');
 const Medicamento = db.Medicamento;
 const MovimientoInventario = db.MovimientoInventario;
+const SolicitudMedicamento = db.SolicitudMedicamento; 
+const Usuario = db.user; 
 const { Op } = require("sequelize");
 
 // 1. Ver inventario (CON FILTRO DE STOCK PARA BÚSQUEDAS)
@@ -35,7 +37,7 @@ exports.getMedicamentos = async (req, res) => {
     }
 };
 
-// --- NUEVA FUNCIÓN: BÚSQUEDA PARA AUTOCOMPLETE ---
+// --- BÚSQUEDA PARA AUTOCOMPLETE ---
 exports.searchMedicamentos = async (req, res) => {
     try {
         const { nombre } = req.query;
@@ -139,5 +141,87 @@ exports.eliminarMedicamento = async (req, res) => {
         else res.status(404).send({ message: "No encontrado." });
     } catch (error) {
         res.status(500).send({ message: "No se pudo eliminar (probablemente tiene historial)." });
+    }
+};
+
+// =========================================================
+//  NUEVAS FUNCIONES PARA EL FLUJO DE FARMACIA
+// =========================================================
+
+// 5. Obtener Solicitudes Pendientes (CORREGIDO: MÁS ROBUSTO ANTE NOMBRES DE COLUMNAS)
+exports.getSolicitudesPendientes = async (req, res) => {
+    try {
+        console.log("--> Buscando solicitudes pendientes..."); // Debug log para la terminal
+        
+        const lista = await SolicitudMedicamento.findAll({
+            where: { estatus: 'PENDIENTE' },
+            include: [
+                {
+                    model: Medicamento,
+                    as: 'medicamento', 
+                    attributes: ['nombre', 'concentracion', 'presentacion']
+                },
+                {
+                    model: Usuario,
+                    as: 'usuario_solicitante', 
+                    // NOTA: Quitamos "attributes" para traer TODO el usuario y evitar errores 
+                    // si la columna 'nombre_usuario' no existe. Filtramos después en JS.
+                }
+            ],
+            order: [['fecha_solicitud', 'ASC']]
+        });
+
+        // Mapeo inteligente para encontrar el nombre sin importar cómo se llame en la BD
+        const respuesta = lista.map(s => {
+            const data = s.toJSON();
+            const usuario = data.usuario_solicitante || {};
+            
+            let nombreMostrar = 'Desconocido';
+
+            // Buscamos cualquier campo que parezca un nombre
+            if (usuario.nombre_completo) {
+                nombreMostrar = usuario.nombre_completo;
+            } else if (usuario.nombre && usuario.apellido) {
+                nombreMostrar = `${usuario.nombre} ${usuario.apellido}`;
+            } else if (usuario.nombre) {
+                nombreMostrar = usuario.nombre;
+            } else if (usuario.nombre_usuario) {
+                nombreMostrar = usuario.nombre_usuario;
+            } else if (usuario.username) {
+                nombreMostrar = usuario.username;
+            } else if (usuario.cedula) {
+                nombreMostrar = `Usuario ${usuario.cedula}`;
+            }
+
+            return {
+                ...data,
+                usuario_solicitante: {
+                    nombre_completo: nombreMostrar
+                }
+            };
+        });
+
+        res.status(200).send(respuesta);
+    } catch (error) {
+        console.error("Error getSolicitudesPendientes:", error);
+        res.status(500).send({ message: "Error al obtener solicitudes: " + error.message });
+    }
+};
+
+// 6. Marcar solicitud como LISTA (Despachar)
+exports.marcarListo = async (req, res) => {
+    try {
+        const { id } = req.params; // ID de la solicitud
+        const solicitud = await SolicitudMedicamento.findByPk(id);
+        
+        if (!solicitud) return res.status(404).send({ message: "Solicitud no encontrada" });
+
+        // Cambiamos el estatus para que la enfermera vea el botón verde
+        solicitud.estatus = 'LISTO';
+        await solicitud.save();
+
+        res.status(200).send({ message: "Medicamento marcado como listo para retiro." });
+    } catch (error) {
+        res.status(500).send({ message: "Error al procesar: " + error.message });
     }
 };
