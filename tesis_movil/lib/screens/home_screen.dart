@@ -52,9 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUserRol() async {
     final rol = await _authService.getRol();
     final nombre = await _authService.getNombreCompleto();
-    
-    // --- CORRECCIÓN IMPORTANTE: Limpiamos el rol ---
-    // Quitamos espacios y normalizamos para evitar errores de tipeo en BD
     String? rolLimpio = rol?.trim(); 
     
     if (mounted) {
@@ -64,9 +61,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
 
-      // Debug: Ver qué rol está llegando realmente
-      debugPrint("Rol detectado: '$rolLimpio'"); 
-
       if (rolLimpio == 'Residente') {
         _cargarPacientes();
       } else if (rolLimpio == 'Especialista') {
@@ -74,18 +68,17 @@ class _HomeScreenState extends State<HomeScreen> {
       } else if (rolLimpio != null && rolLimpio.toLowerCase().contains('enfermer')) {
         _verificarOrdenesPendientes();
         _cargarPacientes(); 
-      } else if (rolLimpio != null && rolLimpio.toLowerCase().contains('farmacia')) { 
-        // ^ Usamos contains('farmacia') para que funcione con "Farmacia" o "farmacia"
+      } else if (_esRolFarmacia()) { 
         _cargarSolicitudesFarmacia();
       }
     }
   }
 
-  // --- LÓGICA FARMACIA ---
+  // --- LÓGICA FARMACIA ACTUALIZADA ---
   Future<void> _cargarSolicitudesFarmacia() async {
     setState(() => _loadingPacientes = true);
     try {
-      debugPrint("Cargando solicitudes de farmacia...");
+      // El servicio ahora debería devolver solicitudes PENDIENTES y LISTAS
       final lista = await _farmaciaService.getSolicitudesPendientes();
       
       if (mounted) {
@@ -93,10 +86,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _solicitudesFarmacia = lista;
           _loadingPacientes = false;
         });
-        debugPrint("Solicitudes cargadas: ${_solicitudesFarmacia.length}");
       }
     } catch (e) {
-      debugPrint("Error cargando farmacia: $e");
       if (mounted) {
         setState(() => _loadingPacientes = false);
         _mostrarSnackBar("Error de conexión con Farmacia", Colors.red);
@@ -104,19 +95,36 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _despacharMedicamento(int idSolicitud) async {
-    bool confirm = await _mostrarConfirmacion("Marcar como Preparado");
+  // Función de acción dinámica para la tarjeta
+  void _gestionarSolicitudFarmacia(Map<String, dynamic> solicitud) async {
+    final String estadoActual = solicitud['estatus'] ?? 'PENDIENTE';
+    final int idSolicitud = solicitud['id_solicitud'];
+    
+    String tituloConfirmacion = estadoActual == 'PENDIENTE' 
+        ? "Marcar como Preparado" 
+        : "Confirmar Entrega Final";
+    
+    bool confirm = await _mostrarConfirmacion(tituloConfirmacion);
+    
     if (confirm && mounted) {
       try {
-        await _farmaciaService.marcarListo(idSolicitud);
-        _mostrarSnackBar("✅ Medicamento marcado como listo", Colors.teal);
-        _cargarSolicitudesFarmacia(); // Recargar lista
+        if (estadoActual == 'PENDIENTE') {
+          // Paso 1: De Pendiente a Listo
+          await _farmaciaService.marcarListo(idSolicitud);
+          _mostrarSnackBar("✅ Preparado. Esperando retiro físico.", Colors.orange);
+        } else {
+          // Paso 2: De Listo a Entregado (Aquí el backend actualiza a 'ENTREGADO')
+          // Asumiendo que marcas como entregado usando un método similar:
+          await _farmaciaService.actualizarEstado(idSolicitud, 'ENTREGADO');
+          _mostrarSnackBar("📦 Medicamento entregado correctamente", Colors.teal);
+        }
+        _cargarSolicitudesFarmacia(); // Recargar para actualizar UI
       } catch (e) {
         _mostrarSnackBar("Error al procesar: $e", Colors.red);
       }
     }
   }
-  // -----------------------
+  // ---------------------------------
 
   Future<void> _verificarOrdenesPendientes() async {
     try {
@@ -232,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildDialogOption(BuildContext ctx, String valor, IconData icono, MaterialColor? color, String titulo, String sub) {
+  Widget _buildDialogOption(BuildContext ctx, String valor, IconData icono, MaterialColor color, String titulo, String sub) {
     return SimpleDialogOption(
       onPressed: () => Navigator.pop(ctx, valor),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
@@ -240,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color?.withValues(alpha: 0.15) ?? Colors.grey.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
             child: Icon(icono, color: color),
           ),
           const SizedBox(width: 15),
@@ -376,7 +384,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); 
   }
 
-  // --- LÓGICA DE INTERFAZ UNIFICADA ---
   bool _esRolFarmacia() {
     return _rol != null && _rol!.trim().toLowerCase().contains('farmacia');
   }
@@ -395,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(_rol == 'Especialista' ? 'Panel de Especialista' 
-                      : _esRolFarmacia() ? 'Pedidos Farmacia' // USO DE FUNCIÓN ROBUSTA
+                      : _esRolFarmacia() ? 'Pedidos Farmacia'
                       : 'Panel Principal'),
           backgroundColor: _esRolFarmacia() ? Colors.teal[800] : const Color.fromARGB(255, 62, 2, 129), 
           foregroundColor: Colors.white,
@@ -441,8 +448,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ) 
           : (_rol == 'Especialista' 
               ? _buildSpecialistView() 
-              : _esRolFarmacia() // CHECK ROBUSTO
-                  ? _buildPharmacyView() // <--- VISTA DE FARMACIA
+              : _esRolFarmacia() 
+                  ? _buildPharmacyView() 
                   : (_rol != null && _rol!.toLowerCase().contains('enfermer'))
                       ? _buildNurseView() 
                       : _buildDefaultWelcome()), 
@@ -450,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- VISTA FARMACIA ---
+  // --- VISTA FARMACIA ACTUALIZADA ---
   Widget _buildPharmacyView() {
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
     if (_solicitudesFarmacia.isEmpty) {
@@ -462,8 +469,6 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             const Text("Sin pedidos pendientes", style: TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            const Text("(Si crees que es un error, verifica tu conexión)", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 20),
             IconButton(icon: const Icon(Icons.refresh, size: 30, color: Colors.teal), onPressed: _cargarSolicitudesFarmacia)
           ],
         ),
@@ -477,8 +482,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Solicitudes por preparar (${_solicitudesFarmacia.length})", 
+              Text("Pedidos Activos (${_solicitudesFarmacia.length})", 
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal[900])),
+              const Text("Pares: Por Preparar | Naranjas: Por Entregar", style: TextStyle(fontSize: 10, color: Colors.grey)),
             ],
           ),
         ),
@@ -492,7 +498,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 final solicitud = _solicitudesFarmacia[i];
                 return PharmacyRequestCard(
                   solicitud: solicitud,
-                  onDespachar: () => _despacharMedicamento(solicitud['id_solicitud']),
+                  // Cambiamos a la nueva lógica dinámica
+                  onAction: () => _gestionarSolicitudFarmacia(solicitud),
                 );
               },
             ),
@@ -502,9 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ... (El resto de las funciones _buildNurseView, _buildTabContent, _buildSpecialistView, _buildDefaultWelcome y _buildDrawer se mantienen igual que tu código original)
-  
-  // --- VISTA ENFERMERÍA ---
   Widget _buildNurseView() {
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
     
@@ -759,7 +763,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminBoardScreen()));
                 }),
                 
-              if (_esRolFarmacia()) // USO DE FUNCIÓN ROBUSTA
+              if (_esRolFarmacia())
                 _buildDrawerItem(Icons.local_pharmacy, 'Gestión de Inventario', textColor, iconColor, () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmaciaInventoryScreen()));
@@ -803,7 +807,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 trailing: Switch(
                   value: isDark,
                   activeThumbColor: Colors.amber[700],
-                  inactiveThumbColor: Colors.indigo[900],
                   onChanged: (_) => ThemeNotifier.toggleTheme(),
                 ),
                 onTap: () => ThemeNotifier.toggleTheme(),
@@ -812,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.exit_to_app, color: Colors.red),
-                title: Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                 onTap: _logout,
               ),
             ],

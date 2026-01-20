@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Import necesario para FilteringTextInputFormatter
+import 'package:flutter/services.dart'; 
 import '../../services/historia_service.dart';
 
-// --- IMPORTS CRÍTICOS ---
-// Asegúrate de que 'resident_home_screen.dart' esté en la misma carpeta que este archivo.
-// Si resident_home_screen.dart tiene errores, PatientSearchScreen fallará.
 import 'resident_home_screen.dart'; 
 import 'register_patient_screen.dart';
 
@@ -32,7 +29,6 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
           duration: Duration(seconds: 2),
         ),
       );
-      
       _cedulaController.clear();
       return; 
     }
@@ -40,31 +36,90 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
     setState(() => _isLoading = true);
     
     try {
-      // Usamos el servicio para ver si el paciente existe
       final data = await _historiaService.getHistoriaClinica(cedula);
       
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Verificamos si la data no está vacía y tiene una cédula válida
-      if (data.isNotEmpty && data['cedula'] != null) {
-        // CASO 1: EXISTE -> Vamos al menú de módulos
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            // ResidentHomeScreen es la clase que importamos
-            builder: (context) => ResidentHomeScreen(pacienteData: data),
-          ),
-        );
+      if (data.isNotEmpty && (data['cedula'] != null || data['cedula_paciente'] != null)) {
+        
+        // --- VALIDACIÓN DE ESTATUS ---
+        String estatus = data['estatus_carpeta'] ?? data['estatus'] ?? 'ABIERTA'; 
+        
+        // Verificación profunda por si viene anidado
+        if (data['carpeta'] != null && data['carpeta']['estatus'] != null) {
+           estatus = data['carpeta']['estatus'];
+        }
+
+        // SI ESTÁ FALLECIDO -> BLOQUEO TOTAL
+        if (estatus.toLowerCase() == 'fallecido') {
+          _mostrarErrorBloqueo(data);
+        } else {
+          // Si está vivo, pasamos al Home
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ResidentHomeScreen(pacienteData: data),
+            ),
+          );
+        }
+
       } else {
-        // CASO 2: RESPUESTA VACÍA -> Sugerimos registrar
+        // NO EXISTE -> REGISTRAR
         _irARegistro();
       }
     } catch (e) {
-      // Si ocurre un error (ej. 404), asumimos que no existe
       setState(() => _isLoading = false);
       _mostrarDialogoNoEncontrado();
     }
+  }
+
+  // --- NUEVA ALERTA DE BLOQUEO (ERROR) ---
+  void _mostrarErrorBloqueo(Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, 
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.block, color: Colors.red, size: 28),
+            SizedBox(width: 10),
+            Text("ACCESO DENEGADO", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "El paciente ${data['nombre_apellido'] ?? 'seleccionado'} se encuentra registrado como FALLECIDO.",
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 15),
+            const Text(
+              "No se pueden realizar nuevas acciones sobre este expediente.",
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[800], 
+                foregroundColor: Colors.white
+              ),
+              onPressed: () {
+                Navigator.pop(ctx); // Cierra el diálogo
+                _cedulaController.clear(); // Limpia el campo para pedir otra cédula
+              },
+              child: const Text("Entendido"),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _irARegistro() {
@@ -118,12 +173,9 @@ class _PatientSearchScreenState extends State<PatientSearchScreen> {
             TextField(
               controller: _cedulaController,
               keyboardType: TextInputType.number,
-              // --- RESTRICCIÓN AGREGADA ---
-              // Esto asegura que el usuario SOLO pueda escribir dígitos (0-9)
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly
               ],
-              // ----------------------------
               decoration: const InputDecoration(
                 labelText: "Cédula de Identidad",
                 border: OutlineInputBorder(),

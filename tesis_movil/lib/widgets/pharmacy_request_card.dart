@@ -2,40 +2,49 @@ import 'package:flutter/material.dart';
 
 class PharmacyRequestCard extends StatelessWidget {
   final Map<String, dynamic> solicitud;
-  final VoidCallback onDespachar;
+  final VoidCallback onAction; // Nombre genérico para manejar ambos estados
 
   const PharmacyRequestCard({
     super.key,
     required this.solicitud,
-    required this.onDespachar,
+    required this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Extraemos datos seguros (con valores por defecto si vienen nulos)
+    // Extraemos el estado actual de la solicitud
+    final String estado = solicitud['estatus'] ?? 'PENDIENTE';
+    final bool isListo = estado == 'LISTO';
+
+    // Datos del medicamento
     final nombreMedicamento = solicitud['medicamento']?['nombre'] ?? 'Medicamento Desconocido';
-    final concentracion = solicitud['medicamento']?['concentracion'] ?? 'S/D';
+    final concentracion = solicitud['medicamento']?['concentracion'] ?? '';
+    final presentacion = solicitud['medicamento']?['presentacion'] ?? '';
     final cantidad = solicitud['cantidad'] ?? 1;
     
-    // Datos del solicitante (Enfermera)
+    // Datos del solicitante y paciente
     final nombreEnfermera = solicitud['usuario_solicitante']?['nombre_completo'] ?? 
                             solicitud['usuario_solicitante']?['nombre_usuario'] ?? 
-                            'Usuario Desconocido';
+                            'Personal de Enfermería';
     
-    // Datos del paciente (Contexto útil para farmacia)
     final cedulaPaciente = solicitud['cedula_paciente'] ?? '---';
 
     return Card(
-      elevation: 3,
+      elevation: isListo ? 1 : 4, // Menos sombra si ya está preparado
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        // Borde verde suave para diferenciar de enfermería
-        side: BorderSide(color: Colors.teal.withValues(alpha: 0.3), width: 1),
+        // Borde naranja si está listo para entregar, teal si está pendiente
+        side: BorderSide(
+          color: isListo ? Colors.orange : Colors.teal.withValues(alpha: 0.3), 
+          width: 1.5
+        ),
       ),
-      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      color: isListo 
+          ? (isDark ? const Color(0xFF2C2C2C) : Colors.orange[50]) 
+          : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -48,10 +57,14 @@ class PharmacyRequestCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.1),
+                    color: (isListo ? Colors.orange : Colors.teal).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.medication_liquid, color: Colors.teal, size: 28),
+                  child: Icon(
+                    isListo ? Icons.pending_actions : Icons.medication_liquid, 
+                    color: isListo ? Colors.orange[800] : Colors.teal, 
+                    size: 28
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -68,7 +81,7 @@ class PharmacyRequestCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "$concentracion",
+                        [concentracion, presentacion].where((s) => s.isNotEmpty).join(" - "),
                         style: TextStyle(
                           color: isDark ? Colors.white70 : Colors.black54,
                           fontSize: 14,
@@ -77,17 +90,30 @@ class PharmacyRequestCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Badge de Cantidad
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.teal,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "x$cantidad",
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
+                // Badge de Cantidad y Estado
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isListo ? Colors.orange : Colors.teal,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "x$cantidad",
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (isListo)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          "LISTO PARA RETIRAR", 
+                          style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w900)
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -129,15 +155,20 @@ class PharmacyRequestCard extends StatelessWidget {
 
             const SizedBox(height: 15),
 
-            // --- BOTÓN DE ACCIÓN ---
+            // --- BOTÓN DE ACCIÓN DINÁMICO ---
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: onDespachar,
-                icon: const Icon(Icons.check_circle_outline, size: 20),
-                label: const Text("MARCAR COMO PREPARADO"),
+                onPressed: onAction,
+                icon: Icon(
+                  isListo ? Icons.delivery_dining : Icons.check_circle_outline, 
+                  size: 20
+                ),
+                label: Text(
+                  isListo ? "CONFIRMAR ENTREGA FINAL" : "MARCAR COMO PREPARADO"
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal[700],
+                  backgroundColor: isListo ? Colors.orange[800] : Colors.teal[700],
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

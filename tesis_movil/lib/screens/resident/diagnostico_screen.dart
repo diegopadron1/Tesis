@@ -28,6 +28,9 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
   final _medicamentosCtrl = TextEditingController(); 
   final _examenesCtrl = TextEditingController();
   final _conductaCtrl = TextEditingController();
+  
+  // Variable para capturar el controlador del Autocomplete y poder limpiarlo
+  TextEditingController? _autocompleteController;
 
   // --- SERVICIOS ---
   final DiagnosticoService _service = DiagnosticoService();
@@ -38,9 +41,10 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
   bool _isLoading = false;
   bool _formularioBloqueado = false;
 
-  // --- SELECCIÓN DE MEDICAMENTO ---
-  int? _idMedicamentoSeleccionado; 
-  Medicamento? _medicamentoSeleccionado; // <--- VARIABLE AHORA EN USO
+  // --- MULTI-SELECCIÓN DE MEDICAMENTOS ---
+  final List<Medicamento> _medicamentosSeleccionados = [];
+  int? _idOrdenGuardada;
+  int? _idDiagnosticoGuardado;
 
   @override
   bool get wantKeepAlive => true;
@@ -75,7 +79,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
           _examenesCtrl.text = data['orden']['examenes_complementarios'] ?? '';
           _conductaCtrl.text = data['orden']['conducta_seguir'] ?? '';
           _idOrdenGuardada = data['orden']['id_orden'];
-          _idMedicamentoSeleccionado = data['orden']['id_medicamento'];
+          // Nota: Aquí se podrían cargar los medicamentos previos si el backend devolviera la lista.
           encontroAlgo = true;
         }
 
@@ -88,19 +92,53 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
     }
   }
 
-  int? _idDiagnosticoGuardado;
-  int? _idOrdenGuardada;
+  void _agregarMedicamento(Medicamento med) {
+    // Evitar duplicados
+    if (_medicamentosSeleccionados.any((m) => m.idMedicamento == med.idMedicamento)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Este medicamento ya está en la lista"), duration: Duration(milliseconds: 1500)),
+      );
+      _autocompleteController?.clear();
+      return;
+    }
+
+    setState(() {
+      _medicamentosSeleccionados.add(med);
+      
+      // Concatenar texto en el campo de indicaciones para facilitar al médico
+      String detalle = "${med.nombre} ${med.concentracion ?? ''} (${med.presentacion ?? ''})";
+      if (_medicamentosCtrl.text.isEmpty) {
+        _medicamentosCtrl.text = "- $detalle: ";
+      } else {
+        _medicamentosCtrl.text = "${_medicamentosCtrl.text}\n- $detalle: ";
+      }
+    });
+    
+    // Limpiamos el buscador usando la referencia capturada
+    _autocompleteController?.clear();
+  }
+
+  void _removerMedicamento(Medicamento med) {
+    setState(() {
+      _medicamentosSeleccionados.remove(med);
+    });
+  }
 
   void _procesarGuardado() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
+
+    // Lógica temporal: enviamos el ID del primero para temas de stock en backend
+    int? idPrincipal = _medicamentosSeleccionados.isNotEmpty 
+        ? _medicamentosSeleccionados.first.idMedicamento 
+        : null;
 
     final Map<String, dynamic> datosEnviar = {
       'cedula_paciente': widget.cedulaPaciente,
       'descripcion': _descripcionCtrl.text.trim(),
       'tipo': _tipoDiagnostico,
       'observaciones': _observacionesCtrl.text.trim(),
-      'id_medicamento': _idMedicamentoSeleccionado, 
+      'id_medicamento': idPrincipal, 
       'indicaciones_inmediatas': _indicacionesCtrl.text.trim(),
       'tratamientos_sugeridos': _tratamientosCtrl.text.trim(),
       'requerimiento_medicamentos': _medicamentosCtrl.text.trim(), 
@@ -186,80 +224,145 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
             ),
             const SizedBox(height: 20),
 
-            const Text("Medicamento Seleccionado (Inventario)",
+            // --- SECCIÓN DE MEDICAMENTOS MULTI-SELECT ---
+            const Text("Selección de Medicamentos (Inventario)",
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
             const SizedBox(height: 8),
+
+            // 1. CHIPS DE MEDICAMENTOS SELECCIONADOS
+            if (_medicamentosSeleccionados.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.2))
+                ),
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: _medicamentosSeleccionados.map((med) {
+                    
+                    // --- CORRECCIÓN DE NULL SAFETY PARA EVITAR CRASH ---
+                    String inicialPresentacion = 'M';
+                    if (med.presentacion != null && med.presentacion!.isNotEmpty) {
+                      inicialPresentacion = med.presentacion![0].toUpperCase();
+                    }
+                    // --------------------------------------------------
+
+                    return InputChip(
+                      label: Text("${med.nombre} ${med.concentracion ?? ''}", 
+                          style: const TextStyle(fontSize: 13)),
+                      avatar: CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Text(inicialPresentacion, 
+                                    style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold)),
+                      ),
+                      backgroundColor: Colors.white,
+                      elevation: 1,
+                      shadowColor: Colors.grey[200],
+                      deleteIcon: const Icon(Icons.close, size: 16, color: Colors.red),
+                      onDeleted: camposDeshabilitados ? null : () => _removerMedicamento(med),
+                    );
+                  }).toList(),
+                ),
+              ),
             
+            // 2. BUSCADOR CON DETALLES (CORREGIDO PARA EVITAR ERROR DE SETSTATE)
             Autocomplete<Medicamento>(
-              displayStringForOption: (Medicamento option) => option.idMedicamento == -1 
-                  ? option.nombre 
-                  : "${option.nombre} (${option.concentracion})",
+              // displayStringForOption vacio para limpiar visualmente al seleccionar
+              displayStringForOption: (Medicamento option) => '',
+              
               optionsBuilder: (TextEditingValue textEditingValue) async {
                 if (textEditingValue.text.isEmpty || camposDeshabilitados) return const Iterable<Medicamento>.empty();
+                
                 final resultados = await _enfermeriaService.getListaMedicamentos(query: textEditingValue.text);
+                
                 if (resultados.isEmpty) {
-                  return [Medicamento(idMedicamento: -1, nombre: "Sin existencias en farmacia", principioActivo: "", concentracion: "", presentacion: "", cantidadDisponible: 0, stockMinimo: 0)];
+                  return [Medicamento(idMedicamento: -1, nombre: "No encontrado", principioActivo: "", concentracion: "", presentacion: "", cantidadDisponible: 0, stockMinimo: 0)];
                 }
-                return resultados;
+                // Filtrar los que ya están seleccionados
+                return resultados.where((m) => !_medicamentosSeleccionados.any((s) => s.idMedicamento == m.idMedicamento));
               },
               onSelected: (Medicamento selection) {
-                if (camposDeshabilitados) return;
-                setState(() {
-                  if (selection.idMedicamento == -1) {
-                    _idMedicamentoSeleccionado = null;
-                    _medicamentoSeleccionado = null;
-                  } else {
-                    _idMedicamentoSeleccionado = selection.idMedicamento;
-                    _medicamentoSeleccionado = selection; // USO DE LA VARIABLE
-                  }
-                });
+                if (selection.idMedicamento != -1) {
+                  _agregarMedicamento(selection);
+                }
               },
-              fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+              fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+                // CORRECCIÓN: Guardamos referencia sin modificar el estado durante el build
+                _autocompleteController = textController;
+                
                 return TextFormField(
-                  controller: textEditingController,
+                  controller: textController,
                   focusNode: focusNode,
                   enabled: !camposDeshabilitados, 
                   decoration: const InputDecoration(
-                    labelText: "Buscar fármaco...",
+                    labelText: "Buscar por nombre o principio activo...",
                     prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(),
+                    hintText: "Ej: Paracetamol..."
+                  ),
+                );
+              },
+              // PERSONALIZACIÓN DE LA LISTA DESPLEGABLE
+              optionsViewBuilder: (context, onSelected, options) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: 250, 
+                        maxWidth: MediaQuery.of(context).size.width - 40 
+                      ),
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        separatorBuilder: (ctx, i) => const Divider(height: 1),
+                        itemBuilder: (BuildContext context, int index) {
+                          final Medicamento option = options.elementAt(index);
+                          
+                          if (option.idMedicamento == -1) {
+                            return ListTile(
+                              title: Text(option.nombre, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                            );
+                          }
+
+                          return ListTile(
+                            title: Text(
+                              "${option.nombre} ${option.concentracion ?? ''}",
+                              style: const TextStyle(fontWeight: FontWeight.bold)
+                            ),
+                            subtitle: Text(
+                              "${option.presentacion ?? 'N/A'} • ${option.principioActivo ?? ''}\nStock: ${option.cantidadDisponible}",
+                              style: const TextStyle(fontSize: 12)
+                            ),
+                            trailing: const Icon(Icons.add_circle, color: Colors.green),
+                            onTap: () => onSelected(option),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 );
               },
             ),
-
-            // --- USO DE LA VARIABLE PARA ELIMINAR EL WARNING Y MOSTRAR STOCK ---
-            if (_medicamentoSeleccionado != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: Colors.blueAccent, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Stock actual: ${_medicamentoSeleccionado!.cantidadDisponible} unidades",
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ],
 
             const SizedBox(height: 15),
 
             TextFormField(
               controller: _medicamentosCtrl,
               enabled: !camposDeshabilitados, 
-              maxLines: 2,
+              maxLines: 4, 
               decoration: const InputDecoration(
-                labelText: "Descripción del Medicamento y Dosis *",
+                labelText: "Indicaciones de Medicamentos y Dosis *",
                 border: OutlineInputBorder(),
+                alignLabelWithHint: true,
               ),
               validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
             ),
@@ -290,7 +393,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> with AutomaticKee
 
             const SizedBox(height: 30),
 
-            // --- BOTÓN OCULTO PARA EL ESPECIALISTA ---
+            // --- BOTÓN ---
             if (!widget.readOnly)
               SizedBox(
                 width: double.infinity,

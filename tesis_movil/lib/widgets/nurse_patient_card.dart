@@ -12,14 +12,12 @@ class NursePatientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Colors based on current theme
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Extract optional medication data if backend sends it
-    final nombreMedicamento = paciente['nombre_medicamento'] as String?;
-    final concentracion = paciente['concentracion'] as String?;
+    // --- DATA EXTRACTION ---
+    final String? listaMedicamentos = paciente['indicaciones_medicamentos'] ?? paciente['requerimiento_medicamentos'];
     
-    // Extract pharmacy order status: null (not ordered), 'PENDIENTE' (in prep), 'LISTO' (ready)
+    // Extraemos el estado de la farmacia
     final String? estadoFarmacia = paciente['estado_farmacia'];
 
     return Card(
@@ -31,7 +29,7 @@ class NursePatientCard extends StatelessWidget {
       ),
       color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       child: InkWell(
-        // Disable general tap if order is pending preparation to prevent duplicate requests
+        // Habilitamos el tap si no está en preparación (PENDIENTE o LISTO para retirar)
         onTap: estadoFarmacia == 'PENDIENTE' ? null : onTap,
         borderRadius: BorderRadius.circular(15),
         child: Padding(
@@ -39,7 +37,7 @@ class NursePatientCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Name and Zone
+              // --- HEADER: NAME & ZONE ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -72,7 +70,7 @@ class NursePatientCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               
-              // Basic Data: ID and Age
+              // --- BASIC DATA: ID & AGE ---
               Row(
                 children: [
                   Icon(Icons.badge, size: 16, color: Colors.grey[600]),
@@ -88,30 +86,34 @@ class NursePatientCard extends StatelessWidget {
               ),
               const Divider(height: 15),
 
-              // --- MEDICATION SECTION (IF EXISTS) ---
-              if (nombreMedicamento != null) ...[
-                Row(
-                  children: [
-                    const Icon(Icons.medication, size: 20, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16),
-                          children: [
-                            TextSpan(text: nombreMedicamento, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.blue)),
-                            if (concentracion != null)
-                              TextSpan(text: " ($concentracion)", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              // --- MEDICATION LIST SECTION ---
+              if (listaMedicamentos != null && listaMedicamentos.isNotEmpty && listaMedicamentos != "Ninguna registrada") ...[
+                const Text(
+                  "MEDICAMENTOS SOLICITADOS:",
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 12),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[900] : Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withValues(alpha: 0.3))
+                  ),
+                  child: Text(
+                    listaMedicamentos,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.blue[900],
+                      fontSize: 14,
+                      height: 1.4 
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
               ],
 
-              // Medical Information Section
+              // --- MEDICAL INFO ---
               _buildMedicalInfo(
                 context, 
                 label: "Indicaciones:", 
@@ -130,7 +132,7 @@ class NursePatientCard extends StatelessWidget {
               
               const SizedBox(height: 20),
 
-              // --- DYNAMIC ACTION BUTTONS ---
+              // --- ACTION BUTTONS ACTUALIZADOS ---
               _buildActionButtons(estadoFarmacia),
             ],
           ),
@@ -156,15 +158,13 @@ class NursePatientCard extends StatelessWidget {
     );
   }
 
-  // Button logic based on state
   Widget _buildActionButtons(String? estado) {
-    
-    // CASE 1: Not yet requested (status is null)
+    // CASO 1: No solicitado aún
     if (estado == null) {
       return SizedBox(
         width: double.infinity,
         child: OutlinedButton.icon(
-          onPressed: onTap, // Call callback to request from pharmacy
+          onPressed: onTap, 
           icon: const Icon(Icons.add_shopping_cart, size: 18),
           label: const Text("Solicitar a Farmacia"),
           style: OutlinedButton.styleFrom(
@@ -176,50 +176,62 @@ class NursePatientCard extends StatelessWidget {
       );
     }
 
-    // CASE 2: Requested, waiting for pharmacy preparation
+    // CASO 2: Pendiente en farmacia (En preparación)
     if (estado == 'PENDIENTE') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.amber[50], 
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.amber)
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+            ),
+            SizedBox(width: 10),
+            Text("EN PREPARACIÓN (FARMACIA)", 
+              style: TextStyle(color: Color(0xFF795548), fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    // CASO 3: Listo en farmacia (Esperando que la enfermera lo busque)
+    if (estado == 'LISTO') {
       return SizedBox(
         width: double.infinity,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.amber[50], // Soft yellow background
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.amber)
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(
-                width: 16, height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
-              ),
-              const SizedBox(width: 10),
-              Text("EN PREPARACIÓN (FARMACIA)", 
-                style: TextStyle(color: Colors.amber[900], fontWeight: FontWeight.bold, fontSize: 13)),
-            ],
+        child: ElevatedButton.icon(
+          onPressed: onTap, 
+          icon: const Icon(Icons.directions_walk, size: 18),
+          label: const Text("IR A RETIRAR A FARMACIA"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange[700],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
       );
     }
 
-    // CASE 3: Pharmacy marked as READY
-    if (estado == 'LISTO') {
-      return Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: onTap, // Logic for "Supply/Withdraw" goes here
-              icon: const Icon(Icons.check_circle, size: 18),
-              label: const Text("RETIRAR Y SUMINISTRAR"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
+    // CASO 4: Entregado (La enfermera ya tiene el medicamento, ahora debe suministrarlo)
+    if (estado == 'ENTREGADO') {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: onTap, 
+          icon: const Icon(Icons.vaccines, size: 18),
+          label: const Text("SUMINISTRAR AL PACIENTE"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[700],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
           ),
-        ],
+        ),
       );
     }
 

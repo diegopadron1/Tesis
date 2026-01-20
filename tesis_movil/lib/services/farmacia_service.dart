@@ -14,7 +14,7 @@ class FarmaciaService {
     return { 'Content-Type': 'application/json', 'x-access-token': token };
   }
 
-  // --- NUEVO MÉTODO: BUSCAR MEDICAMENTOS ---
+  // --- BUSCAR MEDICAMENTOS ---
   Future<List<Medicamento>> searchMedicamentos(String query) async {
     final headers = await _getHeaders();
     if (headers == null) return [];
@@ -110,18 +110,17 @@ class FarmaciaService {
   }
 
   // =======================================================
-  //  NUEVOS MÉTODOS PARA GESTIÓN DE SOLICITUDES (Home Screen)
+  //  GESTIÓN DE SOLICITUDES (Home Screen)
   // =======================================================
 
-  // 1. Obtener lista de solicitudes pendientes
+  // 1. Obtener lista de solicitudes (Trae PENDIENTE y LISTO del backend)
   Future<List<dynamic>> getSolicitudesPendientes() async {
     final headers = await _getHeaders();
     if (headers == null) return [];
 
     try {
-      // Usamos baseUrl para construir la ruta definida en backend routes/farmacia.routes.js
+      // Esta URL debe traer registros con estatus PENDIENTE o LISTO
       final url = Uri.parse("${ApiConfig.baseUrl}/farmacia/solicitudes");
-      
       final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
@@ -136,22 +135,39 @@ class FarmaciaService {
     }
   }
 
-  // 2. Marcar solicitud como LISTA
+  // 2. Marcar solicitud como LISTA (Refactorizado para usar el método general)
   Future<void> marcarListo(int idSolicitud) async {
+    final resultado = await actualizarEstado(idSolicitud, 'LISTO');
+    if (!resultado['success']) {
+      throw Exception(resultado['message']);
+    }
+  }
+
+  // 3. MÉTODO PARA ACTUALIZAR ESTADO (LISTO o ENTREGADO)
+  // Este método permite que la tarjeta se mantenga en vista cambiando de estado
+  Future<Map<String, dynamic>> actualizarEstado(int idSolicitud, String nuevoEstado) async {
     final headers = await _getHeaders();
-    if (headers == null) throw Exception('No hay sesión activa');
+    if (headers == null) return {'success': false, 'message': 'Sin sesión'};
 
     try {
-      final url = Uri.parse("${ApiConfig.baseUrl}/farmacia/solicitudes/$idSolicitud/listo");
+      // Ruta unificada para cambiar el estatus de la solicitud
+      final url = Uri.parse("${ApiConfig.baseUrl}/farmacia/solicitudes/$idSolicitud/estado");
       
-      final response = await http.put(url, headers: headers);
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: jsonEncode({'estatus': nuevoEstado}),
+      );
 
-      if (response.statusCode != 200) {
-        final body = jsonDecode(response.body);
-        throw Exception(body['message'] ?? 'Error al actualizar estado');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': body['message'] ?? 'Estado actualizado'};
+      } else {
+        return {'success': false, 'message': body['message'] ?? 'Error al actualizar estado'};
       }
     } catch (e) {
-      throw Exception("Error de conexión: $e");
+      debugPrint("Error en actualizarEstado: $e");
+      return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
 }
