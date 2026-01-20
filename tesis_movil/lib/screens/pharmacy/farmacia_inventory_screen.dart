@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 import '../../models/medicamento.dart';
 import '../../services/farmacia_service.dart';
 import '../../services/auth_service.dart';
@@ -82,7 +82,9 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
-  // --- DIÁLOGOS (Se mantienen igual) ---
+  // --- DIÁLOGOS ---
+
+  // 1. DIÁLOGO CREAR NUEVO (TODOS LOS CAMPOS OBLIGATORIOS)
   void _showCreateDialog() {
     final formKey = GlobalKey<FormState>();
     final nombreCtrl = TextEditingController();
@@ -95,22 +97,57 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Nuevo Medicamento"),
-        content: SingleChildScrollView(
+        content: SingleChildScrollView( 
           child: Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre Comercial *"), validator: (v) => v!.isEmpty ? "Requerido" : null),
-                TextFormField(controller: principioCtrl, decoration: const InputDecoration(labelText: "Principio Activo")),
-                TextFormField(controller: concentracionCtrl, decoration: const InputDecoration(labelText: "Concentración")),
-                TextFormField(controller: presentacionCtrl, decoration: const InputDecoration(labelText: "Presentación")),
+                // Nombre
+                TextFormField(
+                  controller: nombreCtrl, 
+                  decoration: const InputDecoration(labelText: "Nombre Comercial *"), 
+                  validator: (v) => v == null || v.trim().isEmpty ? "El nombre es requerido" : null
+                ),
+                const SizedBox(height: 10),
+                
+                // Principio Activo
+                TextFormField(
+                  controller: principioCtrl, 
+                  decoration: const InputDecoration(labelText: "Principio Activo *"),
+                  validator: (v) => v == null || v.trim().isEmpty ? "Requerido" : null
+                ),
+                const SizedBox(height: 10),
+                
+                // Concentración
+                TextFormField(
+                  controller: concentracionCtrl, 
+                  decoration: const InputDecoration(labelText: "Concentración *"),
+                  validator: (v) => v == null || v.trim().isEmpty ? "Requerido (ej: 500mg)" : null
+                ),
+                const SizedBox(height: 10),
+                
+                // Presentación
+                TextFormField(
+                  controller: presentacionCtrl, 
+                  decoration: const InputDecoration(labelText: "Presentación *"),
+                  validator: (v) => v == null || v.trim().isEmpty ? "Requerido (ej: Tabletas)" : null
+                ),
+                const SizedBox(height: 10),
+                
+                // Fecha
                 TextFormField(
                   controller: fechaCtrl,
-                  decoration: const InputDecoration(labelText: "Fecha Vencimiento", suffixIcon: Icon(Icons.calendar_today)),
+                  decoration: const InputDecoration(labelText: "Fecha Vencimiento *", suffixIcon: Icon(Icons.calendar_today)),
                   readOnly: true,
+                  validator: (v) => v == null || v.isEmpty ? "Seleccione una fecha" : null,
                   onTap: () async {
-                    DateTime? pickedDate = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 365)), firstDate: DateTime.now(), lastDate: DateTime(2100));
+                    DateTime? pickedDate = await showDatePicker(
+                      context: context, 
+                      initialDate: DateTime.now().add(const Duration(days: 365)), 
+                      firstDate: DateTime.now(), 
+                      lastDate: DateTime(2100)
+                    );
                     if (pickedDate != null) fechaCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
                   },
                 ),
@@ -122,13 +159,25 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () async {
+              // Validamos que todos los campos estén llenos
               if (!formKey.currentState!.validate()) return;
+              
               final res = await _service.createMedicamento({
-                'nombre': nombreCtrl.text, 'principio_activo': principioCtrl.text, 'concentracion': concentracionCtrl.text, 'presentacion': presentacionCtrl.text, 'stock_minimo': 10, 'fecha_vencimiento': fechaCtrl.text
+                'nombre': nombreCtrl.text, 
+                'principio_activo': principioCtrl.text, 
+                'concentracion': concentracionCtrl.text, 
+                'presentacion': presentacionCtrl.text, 
+                'stock_minimo': 10, 
+                'fecha_vencimiento': fechaCtrl.text
               });
+              
               if (ctx.mounted) Navigator.pop(ctx);
+              
               if (mounted) {
-                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message']), backgroundColor: res['success'] ? Colors.green : Colors.red));
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                   content: Text(res['message']), 
+                   backgroundColor: res['success'] ? Colors.green : Colors.red
+                 ));
                  if (res['success']) _refreshList();
               }
             },
@@ -139,19 +188,43 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
+  // 2. DIÁLOGO AGREGAR STOCK
   void _showAddStockDialog(Medicamento med) {
     final cantidadCtrl = TextEditingController();
     final motivoCtrl = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text("Entrada: ${med.nombre}"),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text("Stock Actual: ${med.cantidadDisponible}", style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            TextField(controller: cantidadCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cantidad a sumar")),
-            TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: "Motivo (Opcional)")),
-        ]),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              Text("Stock Actual: ${med.cantidadDisponible}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 20), 
+              TextField(
+                controller: cantidadCtrl, 
+                keyboardType: TextInputType.number, 
+                decoration: const InputDecoration(
+                  labelText: "Cantidad a sumar",
+                  border: OutlineInputBorder(), 
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 15)
+                )
+              ),
+              const SizedBox(height: 15), 
+              TextField(
+                controller: motivoCtrl, 
+                decoration: const InputDecoration(
+                  labelText: "Motivo (Opcional)",
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 15)
+                )
+              ),
+            ]
+          ),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
@@ -165,7 +238,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
                  if (res['success']) _refreshList();
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
             child: const Text("Sumar Stock"),
           )
         ],
@@ -173,25 +246,63 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
     );
   }
 
+  // 3. DIÁLOGO RESTAR STOCK
   void _showRemoveStockDialog(Medicamento med) {
+    final formKey = GlobalKey<FormState>(); 
     final cantidadCtrl = TextEditingController();
     final motivoCtrl = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text("Salida: ${med.nombre}", style: const TextStyle(color: Colors.red)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text("Stock Actual: ${med.cantidadDisponible}", style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            TextField(controller: cantidadCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cantidad a restar")),
-            TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: "Motivo")),
-        ]),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                Text("Stock Actual: ${med.cantidadDisponible}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 20),
+                TextFormField( 
+                  controller: cantidadCtrl, 
+                  keyboardType: TextInputType.number, 
+                  decoration: const InputDecoration(
+                    labelText: "Cantidad a restar",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Ingrese cantidad';
+                    if (int.tryParse(value) == null || int.parse(value) <= 0) return 'Inválido';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 15),
+                TextFormField( 
+                  controller: motivoCtrl, 
+                  decoration: const InputDecoration(
+                    labelText: "Motivo (Obligatorio)",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'El motivo es obligatorio para salidas';
+                    }
+                    return null;
+                  },
+                ),
+              ]
+            ),
+          ),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () async {
-              final cant = int.tryParse(cantidadCtrl.text);
-              if (cant == null || cant <= 0) return;
+              if (!formKey.currentState!.validate()) return;
+
+              final cant = int.parse(cantidadCtrl.text);
               final res = await _service.removeStock(med.idMedicamento, cant, motivoCtrl.text);
               if (ctx.mounted) Navigator.pop(ctx);
               if (mounted) {
@@ -199,7 +310,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
                  if (res['success']) _refreshList();
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
             child: const Text("Restar Stock"),
           )
         ],
@@ -248,7 +359,7 @@ class _FarmaciaInventoryScreenState extends State<FarmaciaInventoryScreen> {
                     suffixIcon: IconButton(icon: const Icon(Icons.clear), onPressed: () => controller.clear()),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)),
                     filled: true,
-                    fillColor: const Color.fromARGB(255, 3, 0, 0),
+                    fillColor: Colors.grey[200], 
                     contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   ),
                 );

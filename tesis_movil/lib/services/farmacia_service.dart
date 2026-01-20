@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import 'auth_service.dart';
 import '../models/medicamento.dart';
@@ -32,7 +33,7 @@ class FarmaciaService {
     }
   }
 
-  // GET
+  // GET INVENTARIO
   Future<List<Medicamento>> getInventario() async {
     final headers = await _getHeaders();
     if (headers == null) return [];
@@ -105,6 +106,52 @@ class FarmaciaService {
       return {'success': response.statusCode == 200, 'message': body['message'] ?? 'Error'};
     } catch (e) {
       return {'success': false, 'message': "Error: $e"};
+    }
+  }
+
+  // =======================================================
+  //  NUEVOS MÉTODOS PARA GESTIÓN DE SOLICITUDES (Home Screen)
+  // =======================================================
+
+  // 1. Obtener lista de solicitudes pendientes
+  Future<List<dynamic>> getSolicitudesPendientes() async {
+    final headers = await _getHeaders();
+    if (headers == null) return [];
+
+    try {
+      // Usamos baseUrl para construir la ruta definida en backend routes/farmacia.routes.js
+      final url = Uri.parse("${ApiConfig.baseUrl}/farmacia/solicitudes");
+      
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint("Error server: ${response.body}");
+        return [];
+      }
+    } catch (e) {
+      debugPrint("Excepción obteniendo solicitudes: $e");
+      return [];
+    }
+  }
+
+  // 2. Marcar solicitud como LISTA
+  Future<void> marcarListo(int idSolicitud) async {
+    final headers = await _getHeaders();
+    if (headers == null) throw Exception('No hay sesión activa');
+
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/farmacia/solicitudes/$idSolicitud/listo");
+      
+      final response = await http.put(url, headers: headers);
+
+      if (response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Error al actualizar estado');
+      }
+    } catch (e) {
+      throw Exception("Error de conexión: $e");
     }
   }
 }

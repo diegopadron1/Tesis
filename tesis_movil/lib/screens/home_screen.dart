@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/triaje_service.dart'; 
-import '../services/enfermeria_service.dart'; 
+import '../services/enfermeria_service.dart';
+import '../services/farmacia_service.dart'; 
 import 'admin_board_screen.dart';
 import 'resident/patient_search_screen.dart'; 
 import 'resident/resident_home_screen.dart'; 
@@ -10,7 +11,8 @@ import 'nurse/nurse_home_screen.dart';
 import 'historia_clinica_screen.dart';
 import 'consultar_historia_screen.dart'; 
 import '../widgets/patient_card.dart'; 
-import '../widgets/nurse_patient_card.dart'; 
+import '../widgets/nurse_patient_card.dart';
+import '../widgets/pharmacy_request_card.dart'; 
 import '../theme_notifier.dart'; 
 
 class HomeScreen extends StatefulWidget {
@@ -22,7 +24,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final AuthService _authService = AuthService();
   final TriajeService _triajeService = TriajeService();
-  final EnfermeriaService _enfermeriaService = EnfermeriaService(); 
+  final EnfermeriaService _enfermeriaService = EnfermeriaService();
+  final FarmaciaService _farmaciaService = FarmaciaService();
   
   String? _rol;
   String? _nombreUsuario;
@@ -30,6 +33,8 @@ class _HomeScreenState extends State<HomeScreen> {
   
   List<dynamic> _pacientesUrgencias = []; 
   List<dynamic> _pacientesReferidos = []; 
+  List<dynamic> _solicitudesFarmacia = []; 
+  
   bool _loadingPacientes = false;
   int _ordenesPendientesCount = 0; 
 
@@ -48,23 +53,70 @@ class _HomeScreenState extends State<HomeScreen> {
     final rol = await _authService.getRol();
     final nombre = await _authService.getNombreCompleto();
     
+    // --- CORRECCIÓN IMPORTANTE: Limpiamos el rol ---
+    // Quitamos espacios y normalizamos para evitar errores de tipeo en BD
+    String? rolLimpio = rol?.trim(); 
+    
     if (mounted) {
       setState(() {
-        _rol = rol;
+        _rol = rolLimpio;
         _nombreUsuario = nombre;
         _isLoading = false;
       });
 
-      if (rol == 'Residente') {
+      // Debug: Ver qué rol está llegando realmente
+      debugPrint("Rol detectado: '$rolLimpio'"); 
+
+      if (rolLimpio == 'Residente') {
         _cargarPacientes();
-      } else if (rol == 'Especialista') {
+      } else if (rolLimpio == 'Especialista') {
         _cargarReferidos();
-      } else if (rol != null && rol.toLowerCase().contains('enfermer')) {
+      } else if (rolLimpio != null && rolLimpio.toLowerCase().contains('enfermer')) {
         _verificarOrdenesPendientes();
         _cargarPacientes(); 
+      } else if (rolLimpio != null && rolLimpio.toLowerCase().contains('farmacia')) { 
+        // ^ Usamos contains('farmacia') para que funcione con "Farmacia" o "farmacia"
+        _cargarSolicitudesFarmacia();
       }
     }
   }
+
+  // --- LÓGICA FARMACIA ---
+  Future<void> _cargarSolicitudesFarmacia() async {
+    setState(() => _loadingPacientes = true);
+    try {
+      debugPrint("Cargando solicitudes de farmacia...");
+      final lista = await _farmaciaService.getSolicitudesPendientes();
+      
+      if (mounted) {
+        setState(() {
+          _solicitudesFarmacia = lista;
+          _loadingPacientes = false;
+        });
+        debugPrint("Solicitudes cargadas: ${_solicitudesFarmacia.length}");
+      }
+    } catch (e) {
+      debugPrint("Error cargando farmacia: $e");
+      if (mounted) {
+        setState(() => _loadingPacientes = false);
+        _mostrarSnackBar("Error de conexión con Farmacia", Colors.red);
+      }
+    }
+  }
+
+  void _despacharMedicamento(int idSolicitud) async {
+    bool confirm = await _mostrarConfirmacion("Marcar como Preparado");
+    if (confirm && mounted) {
+      try {
+        await _farmaciaService.marcarListo(idSolicitud);
+        _mostrarSnackBar("✅ Medicamento marcado como listo", Colors.teal);
+        _cargarSolicitudesFarmacia(); // Recargar lista
+      } catch (e) {
+        _mostrarSnackBar("Error al procesar: $e", Colors.red);
+      }
+    }
+  }
+  // -----------------------
 
   Future<void> _verificarOrdenesPendientes() async {
     try {
@@ -204,12 +256,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<bool> _mostrarConfirmacion(String seleccion) async {
+  Future<bool> _mostrarConfirmacion(String accion) async {
      return await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Confirmar $seleccion", style: const TextStyle(color: Colors.black)),
-        content: Text("¿Está seguro de finalizar este paciente como '$seleccion'?\n\nEsta acción cerrará la carpeta.", style: const TextStyle(color: Colors.black87)),
+        title: Text("Confirmar $accion", style: const TextStyle(color: Colors.black)),
+        content: const Text("¿Está seguro de realizar esta acción?", style: TextStyle(color: Colors.black87)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar", style: TextStyle(color: Colors.grey))),
           ElevatedButton(
@@ -324,6 +376,11 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); 
   }
 
+  // --- LÓGICA DE INTERFAZ UNIFICADA ---
+  bool _esRolFarmacia() {
+    return _rol != null && _rol!.trim().toLowerCase().contains('farmacia');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -337,15 +394,24 @@ class _HomeScreenState extends State<HomeScreen> {
       length: 2, 
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_rol == 'Especialista' ? 'Panel de Especialista' : 'Panel Principal'),
-          backgroundColor: const Color.fromARGB(255, 62, 2, 129),
+          title: Text(_rol == 'Especialista' ? 'Panel de Especialista' 
+                      : _esRolFarmacia() ? 'Pedidos Farmacia' // USO DE FUNCIÓN ROBUSTA
+                      : 'Panel Principal'),
+          backgroundColor: _esRolFarmacia() ? Colors.teal[800] : const Color.fromARGB(255, 62, 2, 129), 
           foregroundColor: Colors.white,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh), 
               onPressed: () {
                 ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-                _rol == 'Especialista' ? _cargarReferidos() : _cargarPacientes();
+                if (_rol == 'Especialista') {
+                  _cargarReferidos();
+                } else if (_esRolFarmacia()) {
+                  _cargarSolicitudesFarmacia();
+                } else {
+                  _cargarPacientes();
+                }
+                
                 if (_rol != null && _rol!.toLowerCase().contains('enfermer')) _verificarOrdenesPendientes();
               }
             ),
@@ -375,26 +441,77 @@ class _HomeScreenState extends State<HomeScreen> {
             ) 
           : (_rol == 'Especialista' 
               ? _buildSpecialistView() 
-              : (_rol != null && _rol!.toLowerCase().contains('enfermer'))
-                  ? _buildNurseView() // <--- VISTA ENFERMERÍA FILTRADA
-                  : _buildDefaultWelcome()), 
+              : _esRolFarmacia() // CHECK ROBUSTO
+                  ? _buildPharmacyView() // <--- VISTA DE FARMACIA
+                  : (_rol != null && _rol!.toLowerCase().contains('enfermer'))
+                      ? _buildNurseView() 
+                      : _buildDefaultWelcome()), 
       ),
     );
   }
 
-  // --- VISTA ESPECÍFICA PARA ENFERMERÍA (FILTRADA) ---
+  // --- VISTA FARMACIA ---
+  Widget _buildPharmacyView() {
+    if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
+    if (_solicitudesFarmacia.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 80, color: Colors.teal.withValues(alpha: 0.3)),
+            const SizedBox(height: 20),
+            const Text("Sin pedidos pendientes", style: TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            const Text("(Si crees que es un error, verifica tu conexión)", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 20),
+            IconButton(icon: const Icon(Icons.refresh, size: 30, color: Colors.teal), onPressed: _cargarSolicitudesFarmacia)
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(15.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Solicitudes por preparar (${_solicitudesFarmacia.length})", 
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal[900])),
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _cargarSolicitudesFarmacia,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              itemCount: _solicitudesFarmacia.length,
+              itemBuilder: (ctx, i) {
+                final solicitud = _solicitudesFarmacia[i];
+                return PharmacyRequestCard(
+                  solicitud: solicitud,
+                  onDespachar: () => _despacharMedicamento(solicitud['id_solicitud']),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ... (El resto de las funciones _buildNurseView, _buildTabContent, _buildSpecialistView, _buildDefaultWelcome y _buildDrawer se mantienen igual que tu código original)
+  
+  // --- VISTA ENFERMERÍA ---
   Widget _buildNurseView() {
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
     
-    // FILTRO: Solo mostrar pacientes que cumplan dos condiciones:
-    // 1. Tienen una orden médica pendiente (flag 'tiene_orden' que mandamos del backend)
-    // 2. Están siendo atendidos (ignorar 'En Espera') - Opcional según tu flujo, pero recomendable
     final pacientesFiltrados = _pacientesUrgencias.where((p) {
         final tieneOrden = p['tiene_orden'] == true;
-        // Si también quieres que solo salgan los que ya pasó el médico ("Siendo Atendido"):
-        // final enAtencion = p['estado'] == 'Siendo Atendido';
-        // return tieneOrden && enAtencion;
-        return tieneOrden;
+        final enAtencion = p['estado'] == 'Siendo Atendido';
+        return tieneOrden && enAtencion; 
     }).toList();
 
     if (pacientesFiltrados.isEmpty) {
@@ -405,7 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.check_circle_outline, size: 80, color: Colors.green.withValues(alpha: 0.3)),
             const SizedBox(height: 20),
             const Text("¡Todo al día!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black54)),
-            const Text("No hay órdenes pendientes por administrar.", style: TextStyle(fontSize: 16, color: Colors.grey)),
+            const Text("No hay órdenes pendientes en pacientes activos.", style: TextStyle(fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 30),
             ElevatedButton.icon(
                 onPressed: _cargarPacientes,
@@ -467,7 +584,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTabContent({required List<dynamic> lista, required bool esEnEspera}) {
-    // ... (El resto del código se mantiene igual que antes)
     if (_loadingPacientes) return const Center(child: CircularProgressIndicator());
     if (lista.isEmpty) {
       return Center(
@@ -643,7 +759,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminBoardScreen()));
                 }),
                 
-              if (_rol == 'Farmacia')
+              if (_esRolFarmacia()) // USO DE FUNCIÓN ROBUSTA
                 _buildDrawerItem(Icons.local_pharmacy, 'Gestión de Inventario', textColor, iconColor, () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmaciaInventoryScreen()));
