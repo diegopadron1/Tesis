@@ -148,13 +148,16 @@ exports.eliminarMedicamento = async (req, res) => {
 //  NUEVAS FUNCIONES PARA EL FLUJO DE FARMACIA
 // =========================================================
 
-// 5. Obtener Solicitudes Pendientes (CORREGIDO: MÁS ROBUSTO ANTE NOMBRES DE COLUMNAS)
+// 5. Obtener Solicitudes (MODIFICADO: Trae PENDIENTE y LISTO)
 exports.getSolicitudesPendientes = async (req, res) => {
     try {
-        console.log("--> Buscando solicitudes pendientes..."); // Debug log para la terminal
+        console.log("--> Buscando solicitudes activas para farmacia...");
         
         const lista = await SolicitudMedicamento.findAll({
-            where: { estatus: 'PENDIENTE' },
+            // El widget NO se va de la vista hasta que el estatus sea 'ENTREGADO'
+            where: { 
+                estatus: { [Op.in]: ['PENDIENTE', 'LISTO'] } 
+            },
             include: [
                 {
                     model: Medicamento,
@@ -164,33 +167,24 @@ exports.getSolicitudesPendientes = async (req, res) => {
                 {
                     model: Usuario,
                     as: 'usuario_solicitante', 
-                    // NOTA: Quitamos "attributes" para traer TODO el usuario y evitar errores 
-                    // si la columna 'nombre_usuario' no existe. Filtramos después en JS.
                 }
             ],
-            order: [['fecha_solicitud', 'ASC']]
+            // Ordenamos: PENDIENTE primero para preparación, luego LISTO para entrega
+            order: [['estatus', 'DESC'], ['fecha_solicitud', 'ASC']]
         });
 
-        // Mapeo inteligente para encontrar el nombre sin importar cómo se llame en la BD
         const respuesta = lista.map(s => {
             const data = s.toJSON();
             const usuario = data.usuario_solicitante || {};
             
             let nombreMostrar = 'Desconocido';
 
-            // Buscamos cualquier campo que parezca un nombre
             if (usuario.nombre_completo) {
                 nombreMostrar = usuario.nombre_completo;
             } else if (usuario.nombre && usuario.apellido) {
                 nombreMostrar = `${usuario.nombre} ${usuario.apellido}`;
-            } else if (usuario.nombre) {
-                nombreMostrar = usuario.nombre;
             } else if (usuario.nombre_usuario) {
                 nombreMostrar = usuario.nombre_usuario;
-            } else if (usuario.username) {
-                nombreMostrar = usuario.username;
-            } else if (usuario.cedula) {
-                nombreMostrar = `Usuario ${usuario.cedula}`;
             }
 
             return {
@@ -208,20 +202,29 @@ exports.getSolicitudesPendientes = async (req, res) => {
     }
 };
 
-// 6. Marcar solicitud como LISTA (Despachar)
-exports.marcarListo = async (req, res) => {
+// 6. Actualizar Estado (Genérico: PENDIENTE -> LISTO -> ENTREGADO)
+exports.actualizarEstado = async (req, res) => {
     try {
-        const { id } = req.params; // ID de la solicitud
+        const { id } = req.params; 
+        const { estatus } = req.body; // Recibe 'LISTO' o 'ENTREGADO'
         const solicitud = await SolicitudMedicamento.findByPk(id);
         
         if (!solicitud) return res.status(404).send({ message: "Solicitud no encontrada" });
 
-        // Cambiamos el estatus para que la enfermera vea el botón verde
-        solicitud.estatus = 'LISTO';
+        solicitud.estatus = estatus;
         await solicitud.save();
 
-        res.status(200).send({ message: "Medicamento marcado como listo para retiro." });
+        res.status(200).send({ 
+            success: true, 
+            message: `Solicitud actualizada a ${estatus}.` 
+        });
     } catch (error) {
         res.status(500).send({ message: "Error al procesar: " + error.message });
     }
+};
+
+// 7. Marcar solicitud como LISTA (Mantener por compatibilidad si es necesario)
+exports.marcarListo = async (req, res) => {
+    req.body.estatus = 'LISTO';
+    return exports.actualizarEstado(req, res);
 };

@@ -1,17 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const enfermeriaController = require('../controllers/enfermeria.controllers');
-const { verifyToken } = require('../middlewares/authJwt'); 
-// Podrías crear un middleware isNurse si quieres ser estricto
 
-// Ver todas las órdenes pendientes (Para el Dashboard)
+// Asegúrate de que la ruta apunte al archivo que modificamos antes.
+// Si tu archivo se llama "enfermeria.controller.js", usa ese nombre aquí.
+const enfermeriaController = require('../controllers/enfermeria.controllers'); 
+const { verifyToken } = require('../middlewares/authJwt'); 
+
+// 1. Ver todas las órdenes pendientes (Para la lista de gestión)
 router.get('/ordenes/pendientes', [verifyToken], enfermeriaController.getOrdenesPendientes);
 
-// Solicitar medicamento (Descuenta inventario)
-router.post('/solicitar', [verifyToken], enfermeriaController.solicitarMedicamento);
+// 2. Solicitar medicamento (Para el carrito de compras)
+// Nota: En el frontend llamamos a este endpoint para cada ítem del carrito
+router.post('/solicitar-medicamento', [verifyToken], enfermeriaController.solicitarMedicamento);
 
+// 3. Actualizar estado (Suministrado / No Realizado)
 router.put('/ordenes/:id_orden', [verifyToken], enfermeriaController.actualizarEstatusOrden);
 
-router.get('/orden-activa/:cedula', [verifyToken], enfermeriaController.getMedicamentoAutorizado);
+// 4. Obtener orden activa para el buscador (El cuadro amarillo)
+router.get('/medicamento-autorizado/:cedula', [verifyToken], enfermeriaController.getMedicamentoAutorizado);
 
 module.exports = router;

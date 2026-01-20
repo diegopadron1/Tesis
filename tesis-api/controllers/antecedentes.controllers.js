@@ -15,22 +15,21 @@ exports.createPersonal = async (req, res) => {
             return res.status(400).send({ message: "Faltan datos obligatorios." });
         }
 
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
-            order: [['createdAt', 'DESC']] // <--- Importante
+            order: [['createdAt', 'DESC']] 
         });
 
         let carpeta;
 
-        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+        // Si no existe carpeta activa, creamos una nueva
+        if (!ultimaCarpeta) {
             console.log(`📂 Creando carpeta automática (Ant. Personal) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
@@ -73,22 +72,20 @@ exports.createFamiliar = async (req, res) => {
             return res.status(400).send({ message: "Faltan datos obligatorios." });
         }
 
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
             order: [['createdAt', 'DESC']]
         });
 
         let carpeta;
 
-        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+        if (!ultimaCarpeta) {
             console.log(`📂 Creando carpeta automática (Ant. Familiar) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
@@ -132,22 +129,20 @@ exports.createHabitos = async (req, res) => {
             return res.status(400).send({ message: "La cédula del paciente es obligatoria." });
         }
 
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
             order: [['createdAt', 'DESC']]
         });
 
         let carpeta;
 
-        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+        if (!ultimaCarpeta) {
             console.log(`📂 Creando carpeta automática (Hábitos) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
@@ -248,27 +243,25 @@ exports.updateHabitos = async (req, res) => {
 };
 
 // ==========================================
-// CONSULTA (GET) - CON LÓGICA DE ALTA
+// CONSULTA (GET) - CON LÓGICA DE ALTA (CORREGIDA)
 // ==========================================
 exports.getAntecedentesHoy = async (req, res) => {
     try {
         const { cedula } = req.params;
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const carpeta = await Carpeta.findOne({
-            where: { cedula_paciente: cedula, createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia } },
-            order: [['createdAt', 'DESC']] // <--- Importante
+            where: { 
+                cedula_paciente: cedula, 
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                } 
+            },
+            order: [['createdAt', 'DESC']] 
         });
 
-        // A. Si no hay carpeta
+        // A. Si no hay carpeta activa (o no existe ninguna)
         if (!carpeta) {
-            return res.status(200).send({ success: true, data: { personal: null, familiar: null, habitos: null } });
-        }
-
-        // B. Si la carpeta está CERRADA (Alta) -> Retornar vacío para nuevo ingreso
-        if (carpeta.estatus === 'Alta') {
             return res.status(200).send({ success: true, data: { personal: null, familiar: null, habitos: null } });
         }
 

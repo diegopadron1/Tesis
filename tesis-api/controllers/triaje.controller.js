@@ -19,19 +19,29 @@ exports.createTriaje = async (req, res) => {
             return res.status(404).send({ message: "Paciente no encontrado. Regístrelo primero." });
         }
 
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
+        // --- CAMBIO IMPORTANTE: LOGICA DE CARPETA ACTIVA ---
+        // Buscamos la última carpeta que NO esté cerrada (Alta, Fallecido, Traslado)
+        // Esto permite encontrar pacientes ingresados ayer u otros días.
+        
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
             order: [['createdAt', 'DESC']]
         });
 
         let carpeta;
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta' || ultimaCarpeta.estatus === 'Fallecido') {
+        
+        if (ultimaCarpeta) {
+            // Si ya tiene una carpeta abierta (de ayer o hoy), la reutilizamos
+            console.log(`📂 Paciente con ingreso activo. Usando carpeta existente ID: ${ultimaCarpeta.id_carpeta}`);
+            carpeta = ultimaCarpeta;
+        } else {
+            // Si no tiene carpeta activa (es un nuevo ingreso), creamos una nueva
+            console.log("📂 Nuevo ingreso detectado. Creando carpeta clínica...");
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
                 fecha_creacion: new Date(),
@@ -39,8 +49,6 @@ exports.createTriaje = async (req, res) => {
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
-        } else {
-            carpeta = ultimaCarpeta;
         }
 
         const nuevoTriaje = await Triaje.create({
@@ -99,7 +107,7 @@ exports.getTriajesActivos = async (req, res) => {
                     id_carpeta: { [Op.in]: carpetaIds },
                     estatus: 'PENDIENTE'
                 },
-                attributes: ['id_orden', 'id_carpeta', 'indicaciones_inmediatas', 'tratamientos_sugeridos'],
+                attributes: ['id_orden', 'id_carpeta', 'indicaciones_inmediatas', 'tratamientos_sugeridos', 'requerimiento_medicamentos'], // Agregado requerimiento_medicamentos
                 include: [
                     {
                         model: Medicamento,
@@ -110,7 +118,7 @@ exports.getTriajesActivos = async (req, res) => {
                         model: SolicitudMedicamento,
                         as: 'solicitudes', // Alias correcto según models/index.js
                         required: false,
-                        attributes: ['estatus'] // AQUÍ ESTÁ LA COLUMNA QUE DEBE EXISTIR EN BD
+                        attributes: ['estatus'] 
                     }
                 ],
                 order: [['createdAt', 'DESC']]
@@ -159,6 +167,8 @@ exports.getTriajesActivos = async (req, res) => {
                 // DATOS MÉDICOS INYECTADOS
                 tiene_orden: !!ordenData,
                 estado_farmacia: estadoFarmacia, // Nuevo dato para el frontend
+                // Enviar el texto completo de medicamentos para la vista de enfermería
+                indicaciones_medicamentos: ordenData ? ordenData.requerimiento_medicamentos : "Ninguna registrada",
                 nombre_medicamento: medData ? medData.nombre : null,
                 concentracion: medData ? medData.concentracion : null,
                 indicaciones_inmediatas: ordenData ? ordenData.indicaciones_inmediatas : "Ninguna registrada",
@@ -293,7 +303,6 @@ exports.finalizarEspecialista = async (req, res) => {
     }
 };
 
-// ... (getTriajeByCedula, atenderTriaje y updateTriaje se mantienen igual)
 exports.getTriajeByCedula = async (req, res) => {
     try {
         const { cedula } = req.params;

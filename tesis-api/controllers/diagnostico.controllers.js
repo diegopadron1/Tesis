@@ -11,7 +11,7 @@ const { Op } = require("sequelize");
 // 1. Crear Diagnóstico y Órdenes Médicas
 // ==========================================
 exports.createDiagnostico = async (req, res) => {
-    // LOG DE DEPURACIÓN: Verifica esto en tu terminal negra
+    // LOG DE DEPURACIÓN
     console.log("--- Recibiendo petición para crear Diagnóstico ---");
     console.log("Cuerpo de la petición:", req.body);
 
@@ -21,7 +21,7 @@ exports.createDiagnostico = async (req, res) => {
         tipo, 
         observaciones,
         // Campos para Órdenes Médicas
-        id_medicamento, // <--- Extracción corregida
+        id_medicamento, 
         indicaciones_inmediatas,
         tratamientos_sugeridos,
         requerimiento_medicamentos,
@@ -46,20 +46,24 @@ exports.createDiagnostico = async (req, res) => {
         const tieneAntecedentes = await AntecedentesPersonales.findOne({ where: { cedula_paciente } });
         if (!tieneAntecedentes) return res.status(403).send({ message: "BLOQUEO: Paciente sin Antecedentes." });
 
-        // --- LÓGICA DE CARPETA ---
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
+        // --- LÓGICA DE CARPETA (CORREGIDA) ---
+        // Buscamos la última carpeta ACTIVA (no cerrada), sin importar la fecha
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
             order: [['createdAt', 'DESC']]
         });
 
         let carpeta = ultimaCarpeta;
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+
+        // Si no hay carpeta activa, creamos una nueva (esto no debería pasar si el flujo es correcto, 
+        // pero se mantiene por seguridad)
+        if (!ultimaCarpeta) {
+            console.log("⚠️ No se encontró carpeta activa. Creando nueva...");
             carpeta = await Carpeta.create({
                 cedula_paciente: cedula_paciente,
                 fecha_creacion: new Date(),
@@ -67,6 +71,8 @@ exports.createDiagnostico = async (req, res) => {
                 id_usuario: id_usuario || null,
                 atendido_por: atendido_por || null
             });
+        } else {
+            console.log(`✅ Usando carpeta activa ID: ${carpeta.id_carpeta}`);
         }
 
         // --- CREAR DIAGNÓSTICO ---
@@ -125,7 +131,7 @@ exports.updateDiagnostico = async (req, res) => {
         const { 
             descripcion, tipo, observaciones, 
             id_orden, 
-            id_medicamento, // <--- CORRECCIÓN: Extracción agregada
+            id_medicamento, 
             indicaciones_inmediatas, tratamientos_sugeridos, 
             requerimiento_medicamentos, examenes_complementarios, conducta_seguir 
         } = req.body;
@@ -146,7 +152,6 @@ exports.updateDiagnostico = async (req, res) => {
             if (orden) {
                 console.log(`-> Actualizando Orden ${id_orden} con ID Medicamento: ${id_medicamento}`);
                 
-                // CORRECCIÓN: Guardar el ID del medicamento
                 orden.id_medicamento = (id_medicamento && id_medicamento !== 0) ? Number(id_medicamento) : null;
                 orden.indicaciones_inmediatas = indicaciones_inmediatas;
                 orden.tratamientos_sugeridos = tratamientos_sugeridos;
@@ -176,20 +181,23 @@ exports.updateDiagnostico = async (req, res) => {
 };
 
 // ==========================================
-// 3. Obtener Diagnóstico y Órdenes de HOY
+// 3. Obtener Diagnóstico y Órdenes ACTIVAS (CORREGIDO)
 // ==========================================
 exports.getDiagnosticoHoy = async (req, res) => {
     try {
         const { cedula } = req.params;
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const carpeta = await Carpeta.findOne({
-            where: { cedula_paciente: cedula, createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia } },
+            where: { 
+                cedula_paciente: cedula, 
+                estatus: { [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] } // Carpeta activa
+            },
             order: [['createdAt', 'DESC']]
         });
 
-        if (!carpeta || carpeta.estatus === 'Alta') {
+        if (!carpeta) {
+            // Si no hay carpeta activa, devolvemos null para que el frontend sepa que está vacío
             return res.status(200).send({ success: true, data: { diagnostico: null, orden: null } });
         }
 
@@ -202,6 +210,7 @@ exports.getDiagnosticoHoy = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Error getDiagnosticoHoy:", error);
         res.status(500).send({ message: "Error al obtener diagnóstico." });
     }
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-// CORRECCIÓN: Asegúrate que apunte al archivo singular 'farmacia.controller' que editamos
+// Asegúrate de que el nombre del archivo coincida (controllers vs controller)
 const farmaciaController = require('../controllers/farmacia.controllers'); 
 const { verifyToken, isFarmacia } = require('../middlewares/authJwt');
 
@@ -25,13 +25,14 @@ router.delete('/medicamentos/:id', [verifyToken, isFarmacia], farmaciaController
 
 
 // ==========================================
-// RUTAS DE GESTIÓN DE SOLICITUDES (NUEVAS)
+// RUTAS DE GESTIÓN DE SOLICITUDES (ACTUALIZADAS)
 // ==========================================
 
-// GET Ver Solicitudes Pendientes (Para la tarjeta de la App)
-router.get('/solicitudes', [verifyToken, isFarmacia], farmaciaController.getSolicitudesPendientes);
+// GET Ver Solicitudes (Trae PENDIENTES y LISTOS para que no desaparezcan)
+router.get('/solicitudes', [verifyToken], farmaciaController.getSolicitudesPendientes);
 
-// PUT Marcar Solicitud como Lista (Botón "Marcar como Preparado")
-router.put('/solicitudes/:id/listo', [verifyToken, isFarmacia], farmaciaController.marcarListo);
+// PUT Actualizar estado de solicitud (Botón dinámico: MARCAR LISTO / CONFIRMAR ENTREGA)
+// Esta ruta sustituye a la anterior de '/solicitudes/:id/listo'
+router.put('/solicitudes/:id/estado', [verifyToken], farmaciaController.actualizarEstado);
 
 module.exports = router;

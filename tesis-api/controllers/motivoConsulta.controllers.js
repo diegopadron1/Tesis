@@ -19,27 +19,22 @@ exports.createMotivoConsulta = async (req, res) => {
     }
 
     try {
-        const inicioDia = new Date();
-        inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date();
-        finDia.setHours(23, 59, 59, 999);
-
-        // --- LÓGICA DE CARPETA INTELIGENTE ---
-        
-        // A. Buscar la ÚLTIMA carpeta de hoy (la más reciente)
+        // --- LÓGICA DE CARPETA INTELIGENTE (CORREGIDA) ---
+        // A. Buscar la ÚLTIMA carpeta ACTIVA (sin importar la fecha)
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
-            order: [['createdAt', 'DESC']] // <--- IMPORTANTE: Traer la última creada
+            order: [['createdAt', 'DESC']] // Traer la última creada
         });
 
         let carpeta;
 
         // B. Decidir: ¿Crear Nueva o Usar Existente?
-        // Condición: Si NO existe carpeta hoy, O SI la última ya fue dada de 'Alta'
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+        if (!ultimaCarpeta) {
             console.log(`📂 Creando NUEVA carpeta para ${cedula_paciente} (Nueva visita o reingreso)...`);
             
             carpeta = await Carpeta.create({
@@ -111,44 +106,30 @@ exports.updateMotivo = async (req, res) => {
     }
 };
 
-// Obtener Motivo y Triaje de HOY
+// Obtener Motivo y Triaje ACTIVOS (Antes "de HOY")
 exports.getByCedulaHoy = async (req, res) => {
     try {
         const { cedula } = req.params;
-        console.log(`🔍 Buscando datos de HOY para cédula: ${cedula}`);
+        console.log(`🔍 Buscando datos ACTIVOS para cédula: ${cedula}`);
 
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // 1. Buscar la ÚLTIMA carpeta ACTIVA
         const carpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
             order: [['createdAt', 'DESC']] 
         });
 
-        // Caso A: No existe carpeta hoy
+        // Caso A: No existe carpeta activa
         if (!carpeta) {
-            console.log("❌ No se encontró carpeta para hoy.");
+            console.log("❌ No se encontró carpeta activa.");
             return res.status(200).send({ success: true, data: { motivo: null, triaje: null } });
         }
 
-        console.log(`✅ Carpeta encontrada ID: ${carpeta.id_carpeta} (Estatus: ${carpeta.estatus})`);
-        console.log(`ℹ️ Estatus en Base de Datos: "${carpeta.estatus}"`);
-
-        // --- CORRECCIÓN AQUÍ ---
-        // Caso B: Existe carpeta, PERO está de 'Alta'.
-        // Debemos devolver NULL para que el frontend permita crear un ingreso nuevo.
-        if (carpeta.estatus === 'Alta') {
-            console.log("⚠️ La carpeta encontrada está CERRADA (Alta). Se retornan datos vacíos para nuevo ingreso.");
-            return res.status(200).send({ 
-                success: true, 
-                data: { motivo: null, triaje: null } // <--- Fingimos que no hay datos
-            });
-        }
-        // -----------------------
+        console.log(`✅ Carpeta activa encontrada ID: ${carpeta.id_carpeta} (Estatus: ${carpeta.estatus})`);
 
         // 2. Buscar datos (Solo si la carpeta está ABIERTA)
         const MotivoConsulta = db.MotivoConsulta;

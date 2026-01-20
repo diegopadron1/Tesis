@@ -7,7 +7,7 @@ const ExamenFisico = db.ExamenFisico;
 const ExamenFuncional = db.ExamenFuncional;
 const AntecedentesPersonales = db.AntecedentesPersonales;
 const AntecedentesFamiliares = db.AntecedentesFamiliares;
-const AntecedentesHabitos = db.HabitosPsicobiologicos; // Verificado
+const AntecedentesHabitos = db.HabitosPsicobiologicos; 
 const Diagnostico = db.Diagnostico;
 const OrdenesMedicas = db.OrdenesMedicas;
 const ContactoEmergencia = db.ContactoEmergencia;
@@ -20,15 +20,30 @@ const getCarpetaDelDia = async (cedulaPaciente, datosUsuario) => {
     inicioDia.setHours(0, 0, 0, 0);
     const finDia = new Date();
     finDia.setHours(23, 59, 59, 999);
+    
+    // Buscamos carpeta de HOY
     let carpeta = await Carpeta.findOne({
         where: {
             cedula_paciente: cedulaPaciente,
             createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
         }
     });
+
+    // Si no existe carpeta de hoy, revisamos si la ULTIMA carpeta histórica fue cerrada
+    // para evitar crear una nueva si el paciente ya falleció (seguridad extra en backend)
     if (!carpeta) {
+        const ultimaHistorica = await Carpeta.findOne({
+            where: { cedula_paciente: cedulaPaciente },
+            order: [['createdAt', 'DESC']]
+        });
+
+        if (ultimaHistorica && ultimaHistorica.estatus === 'Fallecido') {
+            throw new Error("El paciente está registrado como FALLECIDO. No se pueden crear nuevos registros.");
+        }
+
         const idMedico = datosUsuario?.id_usuario || null; 
         const nombreMedico = datosUsuario?.atendido_por || "Médico Tratante";
+        
         carpeta = await Carpeta.create({
             cedula_paciente: cedulaPaciente,
             fecha_creacion: new Date(),
@@ -54,7 +69,7 @@ const upsertEnCarpeta = async (Modelo, data, idCarpeta) => {
 };
 
 // =========================================================================
-// 1. OBTENER HISTORIA COMPLETA
+// 1. OBTENER HISTORIA COMPLETA (CORREGIDO)
 // =========================================================================
 exports.getHistoriaClinica = async (req, res) => {
     const { cedula } = req.params;
@@ -81,13 +96,25 @@ exports.getHistoriaClinica = async (req, res) => {
                     ]
                 }
             ],
+            // Ordenamos las carpetas de la más reciente a la más vieja
             order: [[{ model: Carpeta, as: 'listado_carpetas' }, 'createdAt', 'DESC']]
         });
+
         if (!paciente) return res.status(404).send({ message: "Paciente no encontrado." });
         
         const pacienteJSON = paciente.toJSON();
         const carpetas = pacienteJSON.listado_carpetas || []; 
         
+        // --- AQUÍ ESTÁ LA CORRECCIÓN CLAVE ---
+        // Extraemos el estatus de la carpeta más reciente (posición 0) y lo ponemos visible
+        if (carpetas.length > 0) {
+            pacienteJSON.estatus_carpeta = carpetas[0].estatus; // Ej: 'Fallecido', 'Alta', 'ABIERTA'
+            pacienteJSON.id_carpeta_ultima = carpetas[0].id_carpeta;
+        } else {
+            pacienteJSON.estatus_carpeta = null; // Paciente nuevo sin historial
+        }
+        // -------------------------------------
+
         // Inicializar listas aplanadas para el frontend
         pacienteJSON.MotivoConsultas = [];
         pacienteJSON.Diagnosticos = [];
@@ -138,6 +165,7 @@ exports.getHistoriaClinica = async (req, res) => {
                 pacienteJSON.OrdenesMedicas.push(...ordenes.map(o => { o.id_carpeta = carpeta.id_carpeta; return o; }));
             }
         });
+        
         res.status(200).send(pacienteJSON);
     } catch (error) {
         console.error("Error al cargar historia:", error);
@@ -164,10 +192,13 @@ exports.guardarSeccion = async (req, res) => {
             else await ContactoEmergencia.create(datos);
             return res.status(200).send({ message: "Contacto guardado.", success: true });
         }
+        
+        // Obtenemos carpeta (lanzará error si está fallecido gracias al cambio en el helper)
         const carpeta = await getCarpetaDelDia(cedula, { 
             id_usuario: req.body.id_usuario,     
             atendido_por: req.body.atendido_por 
         });
+
         let resultado;
         switch (seccion) {
             case 'motivo': resultado = await upsertEnCarpeta(MotivoConsulta, datos, carpeta.id_carpeta); break;
@@ -175,7 +206,6 @@ exports.guardarSeccion = async (req, res) => {
             case 'funcional': resultado = await upsertEnCarpeta(ExamenFuncional, datos, carpeta.id_carpeta); break;
             case 'ant_pers': resultado = await upsertEnCarpeta(AntecedentesPersonales, datos, carpeta.id_carpeta); break;
             case 'ant_fam': resultado = await upsertEnCarpeta(AntecedentesFamiliares, datos, carpeta.id_carpeta); break;
-            // CORREGIDO: ant_hab ahora apunta al modelo correcto de Hábitos
             case 'ant_hab': resultado = await upsertEnCarpeta(AntecedentesHabitos, datos, carpeta.id_carpeta); break;
             case 'diagnostico': resultado = await upsertEnCarpeta(Diagnostico, datos, carpeta.id_carpeta); break;
             case 'orden_medica': 
@@ -186,6 +216,10 @@ exports.guardarSeccion = async (req, res) => {
         res.status(200).send({ message: "Sección guardada correctamente.", success: true, data: resultado });
     } catch (error) {
         console.error(`Error guardando ${seccion}:`, error);
+        // Si el error es por paciente fallecido, enviamos mensaje claro
+        if (error.message.includes("FALLECIDO")) {
+            return res.status(403).send({ message: error.message });
+        }
         res.status(500).send({ message: "Error al guardar la información." });
     }
 };

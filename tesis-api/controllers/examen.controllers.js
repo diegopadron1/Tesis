@@ -15,22 +15,21 @@ exports.createExamenFisico = async (req, res) => {
     }
 
     try {
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
-            order: [['createdAt', 'DESC']] // <--- Importante: La más reciente
+            order: [['createdAt', 'DESC']]
         });
 
         let carpeta;
 
-        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+        // Si no existe carpeta activa, crear nueva
+        if (!ultimaCarpeta) {
             console.log(`📂 Creando carpeta automática (Examen Físico) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente,
@@ -40,7 +39,6 @@ exports.createExamenFisico = async (req, res) => {
                 atendido_por: atendido_por || null
             });
         } else {
-            // Usar la existente
             carpeta = ultimaCarpeta;
         }
 
@@ -48,7 +46,7 @@ exports.createExamenFisico = async (req, res) => {
             cedula_paciente,
             area,
             hallazgos,
-            id_carpeta: carpeta.id_carpeta // Vinculación
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
@@ -74,22 +72,20 @@ exports.createExamenFuncional = async (req, res) => {
     }
 
     try {
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-
-        // 1. Buscar la ÚLTIMA carpeta de hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const ultimaCarpeta = await Carpeta.findOne({
             where: {
                 cedula_paciente: cedula_paciente,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
-            order: [['createdAt', 'DESC']] // <--- Importante
+            order: [['createdAt', 'DESC']]
         });
 
         let carpeta;
 
-        // 2. Si no existe O si la última ya está de Alta -> Crear Nueva
-        if (!ultimaCarpeta || ultimaCarpeta.estatus === 'Alta') {
+        if (!ultimaCarpeta) {
             console.log(`📂 Creando carpeta automática (Examen Funcional) para ${cedula_paciente}...`);
             carpeta = await Carpeta.create({
                 cedula_paciente,
@@ -106,7 +102,7 @@ exports.createExamenFuncional = async (req, res) => {
             cedula_paciente,
             sistema,
             hallazgos,
-            id_carpeta: carpeta.id_carpeta // Vinculación
+            id_carpeta: carpeta.id_carpeta 
         });
 
         res.status(201).send({ 
@@ -142,33 +138,26 @@ exports.updateExamenFuncional = async (req, res) => {
     }
 };
 
-// --- OBTENER EXÁMENES DE HOY ---
+// --- OBTENER EXÁMENES DE HOY (CORREGIDO) ---
 exports.getExamenesHoy = async (req, res) => {
     try {
         const { cedula } = req.params;
-        const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
-        const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
 
-        // 1. Buscar la ÚLTIMA carpeta de Hoy
+        // --- CORRECCIÓN: BUSCAR POR ESTATUS, NO POR FECHA ---
         const carpeta = await Carpeta.findOne({
-            where: {
-                cedula_paciente: cedula,
-                createdAt: { [Op.gte]: inicioDia, [Op.lte]: finDia }
+            where: { 
+                cedula_paciente: cedula, 
+                estatus: { 
+                    [Op.notIn]: ['Alta', 'Fallecido', 'Traslado'] 
+                }
             },
-            order: [['createdAt', 'DESC']] // <--- Importante
+            order: [['createdAt', 'DESC']] 
         });
 
-        // A. Si no hay carpeta hoy
         if (!carpeta) {
             return res.status(200).send({ success: true, data: { fisico: null, funcional: null } });
         }
 
-        // B. Si la carpeta está CERRADA (Alta) -> Devolvemos vacio para permitir nuevo ingreso
-        if (carpeta.estatus === 'Alta') {
-            return res.status(200).send({ success: true, data: { fisico: null, funcional: null } });
-        }
-
-        // 2. Buscar Examen Físico y Funcional de esa carpeta ABIERTA
         const fisico = await ExamenFisico.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
         const funcional = await ExamenFuncional.findOne({ where: { id_carpeta: carpeta.id_carpeta } });
 
