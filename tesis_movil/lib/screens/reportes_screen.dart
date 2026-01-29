@@ -31,6 +31,7 @@ class _ReportesScreenState extends State<ReportesScreen> {
         if (res['success']) {
           _datos = res['data'];
         } else {
+          _datos = null; // Limpiar datos si hay error
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(res['message']), backgroundColor: Colors.red),
           );
@@ -106,7 +107,6 @@ class _ReportesScreenState extends State<ReportesScreen> {
     return ListView(
       padding: const EdgeInsets.all(15),
       children: [
-        // SECCIÓN 1: PACIENTES
         _sectionTitle("Gestión de Pacientes"),
         Row(
           children: [
@@ -118,7 +118,6 @@ class _ReportesScreenState extends State<ReportesScreen> {
         
         const SizedBox(height: 25),
 
-        // SECCIÓN 2: ÓRDENES MÉDICAS (Cuadrícula 2x2)
         _sectionTitle("Estatus de Órdenes"),
         Row(
           children: [
@@ -136,7 +135,6 @@ class _ReportesScreenState extends State<ReportesScreen> {
 
         const SizedBox(height: 20),
 
-        // SECCIÓN 3: FARMACIA
         _sectionTitle("Insumos y Farmacia"),
         Card(
           elevation: 2,
@@ -153,7 +151,6 @@ class _ReportesScreenState extends State<ReportesScreen> {
 
         const SizedBox(height: 25),
 
-        // SECCIÓN 4: ÁREAS
         _sectionTitle("Carga por Área"),
         const Divider(),
         if (areas.isEmpty)
@@ -200,30 +197,45 @@ class _ReportesScreenState extends State<ReportesScreen> {
     );
   }
 
+  // MÉTODO CORREGIDO PARA MODO CLARO/OSCURO
   Widget _buildAreaItem(Map<String, dynamic> area) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Card(
-      elevation: 0,
-      color: const Color.fromARGB(255, 0, 0, 0),
-      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 1,
+      // Se eliminó el color negro fijo para que use el del tema (blanco en modo claro)
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
       ),
       child: ListTile(
         leading: const CircleAvatar(
           backgroundColor: Colors.indigo,
           child: Icon(Icons.location_on, color: Colors.white, size: 18),
         ),
-        title: Text(area['ubicacion'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        title: Text(
+          area['ubicacion'], 
+          style: TextStyle(
+            fontSize: 15, 
+            fontWeight: FontWeight.bold,
+            // El color del texto ahora se adapta al tema
+            color: isDark ? Colors.white : Colors.black87,
+          )
+        ),
         trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.indigo.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             "${area['cantidad']} pac.",
-            style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 12),
+            style: const TextStyle(
+              color: Colors.indigo, 
+              fontWeight: FontWeight.bold, 
+              fontSize: 12
+            ),
           ),
         ),
       ),
